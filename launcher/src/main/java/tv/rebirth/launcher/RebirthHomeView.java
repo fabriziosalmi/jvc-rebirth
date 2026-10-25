@@ -20,6 +20,7 @@ public final class RebirthHomeView extends View {
         void onTileClicked(LauncherModel.Tile tile);
         void onTileLongClicked(LauncherModel.Tile tile);
         void onDirectChannelNumber(int lcn);
+        void onLiveTvShortcutKey(int keyCode);
     }
 
     private static final int[] APP_RES_IDS = new int[] {
@@ -432,7 +433,7 @@ public final class RebirthHomeView extends View {
         subPaint.setTextAlign(Paint.Align.LEFT);
         subPaint.setTextSize(13f);
         subPaint.setColor(0xFF64748B);
-        canvas.drawText("[OK] Apri App o Canale   |   [1..99] Numero canale diretto   |   [Tieni OK] Force-Stop App & Info", 64f, 660f, subPaint);
+        canvas.drawText("[OK] Apri  |  [1..999] Canale diretto  |  [Tieni OK su App] Force-Stop  |  [Tieni OK su Settings] Tutte le App", 64f, 660f, subPaint);
 
         subPaint.setTextAlign(Paint.Align.RIGHT);
         subPaint.setColor(0xFF475569);
@@ -504,6 +505,17 @@ public final class RebirthHomeView extends View {
         if (keyCode == KeyEvent.KEYCODE_MENU) {
             if (listener != null) {
                 listener.onTileLongClicked(model.getFocusedTile());
+            }
+            return true;
+        }
+
+        if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP
+                || keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN
+                || keyCode == KeyEvent.KEYCODE_TV
+                || keyCode == KeyEvent.KEYCODE_GUIDE
+                || keyCode == KeyEvent.KEYCODE_INFO) {
+            if (listener != null) {
+                listener.onLiveTvShortcutKey(keyCode);
             }
             return true;
         }

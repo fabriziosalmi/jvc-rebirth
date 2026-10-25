@@ -192,23 +192,25 @@ To eliminate the remaining footprint of third-party Android TV launchers on a 90
 3. **Pre-Baked `1:1` Icons on GPU `GraphicBuffer` (`Bitmap.Config.HARDWARE`)**:
    - All 14 streaming app and DVB-T2 channel logos (`37.04 KB` total in [`launcher/res/drawable-nodpi/`](launcher/res/drawable-nodpi/)) are pre-rasterized to exact `1280x720` pixel coordinates and decoded with `Bitmap.Config.HARDWARE` directly into GPU graphic buffers (`gralloc`), avoiding `PackageManager` icon IPC and Java heap pixel allocations.
    - When an app or Live TV starts (`onStop()` / `onTrimMemory(TRIM_MEMORY_UI_HIDDEN)`), `releaseBitmaps()` immediately recycles all bitmaps.
-4. **1-Click DVB-T2 Quick Channels, Direct Numeric Entry & Vestel HDMI Switching**:
-   - **Row 1 (`STREAMING & TV`)**: `YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay`, and `TV` (`com.mediatek.wwtv.tvcenter` at the far right).
-   - **Row 2 (`CANALI RAPIDI TV`)**: 9 direct DVB-T2 channel cards (`1 Rai 1`, `3 Rai 3`, `7 LA7`, `35 Focus`, `54 Rai Storia`, `57 Rai Scuola`, `43 Rai Yoyo`, `40 Boing`, `46 Cartoonito`) plus direct numeric keypad tuning (`1..999` on the remote). Channel IDs (`content://android.media.tv/channel/<_id>`) are batch-preloaded in a single SQLite query into a primitive `SparseLongArray`.
-   - **Top Micro-Strip**: 1-click Vestel hardware HDMI input switching (`HW4` / `HDMI 1`, `HW5` / `HDMI 2`, `HW6` / `HDMI 3`), `Free RAM` boost (`killBackgroundProcesses`), and Android TV `Settings`.
+4. **1-Click DVB-T2 Quick Channels, Direct Numeric Entry & MediaTek Turnkey Integration**:
+   - **Row 1 (`STREAMING & TV`)**: `YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay`, and `TV` (`com.mediatek.wwtv.tvcenter/.nav.TurnkeyUiMainActivity` at the far right).
+   - **Row 2 (`CANALI RAPIDI TV`)**: 9 direct DVB-T2 channel cards (`1 Rai 1`, `3 Rai 3`, `7 LA7`, `35 Focus`, `54 Rai Storia`, `57 Rai Scuola`, `43 Rai Yoyo`, `40 Boing`, `46 Cartoonito`) plus direct numeric keypad tuning (`1..999`) and `CH+` / `CH-` / `TV` / `GUIDE` remote key passthrough. Because MediaTek's `LiveTV.apk` stores DVB-T2 channels in its native `SVL` (`TIFChannelManager`) table rather than Android's `tv.db`, `MainActivity` drives both standard `TvContract` URIs and MediaTek's `TurnkeyReceiver` broadcasts (`com.mediatek.tv.selectchannel` with `channelNum`, and `com.mediatek.tv.channelupdown`).
+   - **Top Micro-Strip**: 1-click Vestel hardware HDMI input switching (`HW4` / `HDMI 1`, `HW5` / `HDMI 2`, `HW6` / `HDMI 3` targeting `TurnkeyUiMainActivity` with `bootcomplete=true`, `inputName`, `deviceName`, and `com.mediatek.select.source`), `Free RAM` boost (`killBackgroundProcesses`), and Android TV `Settings` (short press opens System Settings; long press `OK` or `MENU` opens a lazy, zero-idle-RAM native dialog of all installed apps).
 5. **Direct Boot & Uncompressed `mmap` Packaging**:
    - Marked `android:directBootAware="true"` and `android:defaultToDeviceProtectedStorage="true"` to bypass Android's slow `FallbackHome` (*"Android is starting..."*) screen during cold boot.
-   - `classes.dex` (`24.88 KB`), `resources.arsc` (`1.93 KB`), and all 14 PNGs are stored uncompressed (`Stored`, `0%`) and 4-byte aligned (`zipalign -p 4`) so the Linux kernel maps them directly via `mmap` from flash without RAM decompression.
+   - `classes.dex` (`29.10 KB`), `resources.arsc` (`1.89 KB`), and all 14 PNGs are stored uncompressed (`Stored`, `0%`) and 4-byte aligned (`zipalign -p 4`) so the Linux kernel maps them directly via `mmap` from flash without RAM decompression.
 
 ### Measured Comparison: Stock vs. Projectivy 4.72 vs. Rebirth Launcher 1.0.0
 
 | Metric | Stock Google TV Launcher | Projectivy Launcher 4.72 | Rebirth Launcher 1.0.0 | Improvement vs. Projectivy |
 | :--- | ---: | ---: | ---: | :--- |
-| **Signed APK Size** | System Preload (`>45 MB`) | `11,953,766 B` (`11.40 MB`) | **`79,887 B` (`78.01 KB`)** | **150x smaller APK** |
-| **DEX Bytecode (`classes.dex`)** | Multi-DEX + GmsCore | `7,706 KB` (3 DEX files) | **`24.88 KB` (1 DEX, `Stored`)** | **310x less bytecode** |
+| **Signed APK Size** | System Preload (`>45 MB`) | `11,953,766 B` (`11.40 MB`) | **`83,527 B` (`81.57 KB`)** | **143x smaller APK** |
+| **DEX Bytecode (`classes.dex`)** | Multi-DEX + GmsCore | `7,706 KB` (3 DEX files) | **`29.10 KB` (1 DEX, `Stored`)** | **264x less bytecode** |
+| **DEX Classes / Methods** | Thousands | `7,592` classes / `59,219` methods | **`13` classes / `202` methods** | **584x fewer classes** |
+| **Manifest Components** | Services + Providers | `59` Act / `13` Svc / `16` Rcv / `4` Prv | **`1` Act / `0` Svc / `0` Rcv / `0` Prv** | **Zero background components** |
 | **Resource Table (`resources.arsc`)** | Multi-MB | `2,150 KB` | **`1.89 KB` (`Stored`)** | **1,137x smaller resources** |
 | **Embedded Videos / Native `.so`** | Heavy animations | `1.2 MB` (5 `.mp4`) + 4 `.so` | **`0`** | **100% removed** |
-| **D-Pad 2D Focus Latency (1M ops)** | Heavy View tree layout | Leanback `RecyclerView` | **`6.73 ns/op`** | **Zero-layout state machine** |
+| **D-Pad 2D Focus Latency (1M ops)** | Heavy View tree layout | Leanback `RecyclerView` | **`6.31 ns/op`** | **Zero-layout state machine** |
 | **Allocations in `onDraw()` (60 Hz)** | View + Glide churn | Leanback + Glide | **`0` allocations (bytecode-gated)** | **Zero GC pressure** |
 
 ### Local Build & Test Suite (No TV Required)

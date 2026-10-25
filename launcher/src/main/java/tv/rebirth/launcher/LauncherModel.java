@@ -18,6 +18,11 @@ public final class LauncherModel {
     public static final int ACTION_OPEN_SETTINGS = 5;
 
     public static final String LIVE_TV_PKG = "com.mediatek.wwtv.tvcenter";
+    public static final String LIVE_TV_ACTIVITY = "com.mediatek.wwtv.tvcenter.nav.TurnkeyUiMainActivity";
+    public static final String ACTION_MTK_SELECT_CHANNEL = "com.mediatek.tv.selectchannel";
+    public static final String ACTION_MTK_CHANNEL_UPDOWN = "com.mediatek.tv.channelupdown";
+    public static final String ACTION_MTK_SELECT_SOURCE = "com.mediatek.select.source";
+    public static final String EXTRA_MTK_SOURCE_NAME = "com.mediatek.select.sourcename";
 
     public static final String[] BACKGROUND_KILL_TARGETS = new String[] {
         "com.google.android.youtube.tv",

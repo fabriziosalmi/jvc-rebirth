@@ -146,6 +146,22 @@ public class LauncherModelTest {
             "content://android.media.tv/passthrough/com.mediatek.tvinput%2F.hdmi.HDMIInputService%2FHW4",
             top[0].passthroughUri
         );
+        assertEquals(
+            "com.mediatek.wwtv.tvcenter.nav.TurnkeyUiMainActivity",
+            LauncherModel.LIVE_TV_ACTIVITY
+        );
+        assertEquals(
+            "com.mediatek.tv.selectchannel",
+            LauncherModel.ACTION_MTK_SELECT_CHANNEL
+        );
+        assertEquals(
+            "com.mediatek.tv.channelupdown",
+            LauncherModel.ACTION_MTK_CHANNEL_UPDOWN
+        );
+        assertEquals(
+            "com.mediatek.select.source",
+            LauncherModel.ACTION_MTK_SELECT_SOURCE
+        );
     }
 
     @Test

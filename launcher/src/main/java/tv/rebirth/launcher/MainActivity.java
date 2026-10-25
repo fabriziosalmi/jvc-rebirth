@@ -2,9 +2,11 @@ package tv.rebirth.launcher;
 
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -15,11 +17,15 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.util.SparseLongArray;
+import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -28,6 +34,10 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
 
     private static final String[] CHANNEL_PROJECTION = new String[] { "_id", "display_number" };
     private static final Uri CHANNELS_CONTENT_URI = Uri.parse("content://android.media.tv/channel");
+    private static final ComponentName LIVE_TV_COMPONENT = new ComponentName(
+        LauncherModel.LIVE_TV_PKG,
+        LauncherModel.LIVE_TV_ACTIVITY
+    );
 
     private LauncherModel model;
     private RebirthHomeView homeView;
@@ -102,7 +112,7 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
 
     @Override
     public void onBackPressed() {
-        launchPackage(LauncherModel.LIVE_TV_PKG);
+        launchLiveTv();
     }
 
     private void refreshHeaderTelemetry() {
@@ -134,13 +144,17 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
         if (tile == null) return;
         switch (tile.actionType) {
             case LauncherModel.ACTION_LAUNCH_PACKAGE:
-                launchPackage(tile.targetPackageOrInput);
+                if (LauncherModel.LIVE_TV_PKG.equals(tile.targetPackageOrInput)) {
+                    launchLiveTv();
+                } else {
+                    launchPackage(tile.targetPackageOrInput);
+                }
                 break;
             case LauncherModel.ACTION_TUNE_LCN:
-                tuneToChannelLcn(tile.lcn);
+                tuneToChannelLcn(tile.lcn, tile.title);
                 break;
             case LauncherModel.ACTION_SWITCH_HDMI:
-                switchToHdmiUri(tile.passthroughUri);
+                switchToHdmiTile(tile);
                 break;
             case LauncherModel.ACTION_FREE_RAM:
                 freeBackgroundRam();
@@ -154,11 +168,14 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
     @Override
     public void onTileLongClicked(LauncherModel.Tile tile) {
         if (tile == null) return;
+        if (tile.actionType == LauncherModel.ACTION_OPEN_SETTINGS) {
+            showAllInstalledAppsDialog();
+            return;
+        }
         if (tile.actionType == LauncherModel.ACTION_LAUNCH_PACKAGE && tile.targetPackageOrInput.length() > 0) {
             try {
-                ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-                if (am != null) {
-                    am.killBackgroundProcesses(tile.targetPackageOrInput);
+                if (activityManager != null) {
+                    activityManager.killBackgroundProcesses(tile.targetPackageOrInput);
                 }
                 Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
                 intent.setData(Uri.parse("package:" + tile.targetPackageOrInput));
@@ -174,7 +191,34 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
 
     @Override
     public void onDirectChannelNumber(int lcn) {
-        tuneToChannelLcn(lcn);
+        tuneToChannelLcn(lcn, "");
+    }
+
+    @Override
+    public void onLiveTvShortcutKey(final int keyCode) {
+        launchLiveTv();
+        if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP || keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN) {
+            final boolean isUp = (keyCode == KeyEvent.KEYCODE_CHANNEL_UP);
+            sendMtkChannelUpDownBroadcast(isUp);
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    sendMtkChannelUpDownBroadcast(isUp);
+                }
+            }, 350L);
+        }
+    }
+
+    private void launchLiveTv() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.setComponent(LIVE_TV_COMPONENT);
+            intent.putExtra("bootcomplete", true);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Throwable t) {
+            launchPackage(LauncherModel.LIVE_TV_PKG);
+        }
     }
 
     private void launchPackage(String pkg) {
@@ -205,20 +249,57 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
         }
     }
 
-    private void tuneToChannelLcn(int lcn) {
+    private void tuneToChannelLcn(final int lcn, final String channelTitle) {
+        final String numStr = String.valueOf(lcn);
+        final String safeName = (channelTitle != null) ? channelTitle : "";
+        boolean launchedWithUri = false;
         try {
             long channelId = resolveChannelIdForLcn(lcn);
             if (channelId > 0L) {
                 Uri channelUri = Uri.parse(LauncherModel.buildChannelUri(channelId));
                 Intent intent = new Intent(Intent.ACTION_VIEW, channelUri);
-                intent.setPackage(LauncherModel.LIVE_TV_PKG);
+                intent.setComponent(LIVE_TV_COMPONENT);
+                intent.putExtra("bootcomplete", true);
+                intent.setData(channelUri);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-                return;
+                launchedWithUri = true;
             }
         } catch (Throwable ignored) {
         }
-        launchPackage(LauncherModel.LIVE_TV_PKG);
+
+        if (!launchedWithUri) {
+            launchLiveTv();
+        }
+
+        // Also send MediaTek TurnkeyReceiver$6 broadcast ("com.mediatek.tv.selectchannel")
+        // so SVL/TIFChannelManager tunes even when Android tv.db is empty
+        sendMtkSelectChannelBroadcast(numStr, safeName);
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                sendMtkSelectChannelBroadcast(numStr, safeName);
+            }
+        }, 350L);
+    }
+
+    private void sendMtkSelectChannelBroadcast(String channelNum, String channelName) {
+        try {
+            Intent bcast = new Intent(LauncherModel.ACTION_MTK_SELECT_CHANNEL);
+            bcast.putExtra("channelNum", channelNum);
+            bcast.putExtra("channelName", channelName);
+            sendBroadcast(bcast);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private void sendMtkChannelUpDownBroadcast(boolean up) {
+        try {
+            Intent bcast = new Intent(LauncherModel.ACTION_MTK_CHANNEL_UPDOWN);
+            bcast.putExtra("upOrdown", up);
+            sendBroadcast(bcast);
+        } catch (Throwable ignored) {
+        }
     }
 
     private long resolveChannelIdForLcn(int lcn) {
@@ -271,14 +352,87 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
         }
     }
 
-    private void switchToHdmiUri(String passthroughUri) {
+    private void switchToHdmiTile(LauncherModel.Tile tile) {
         try {
-            Uri uri = Uri.parse(passthroughUri);
+            Uri uri = Uri.parse(tile.passthroughUri);
             Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            intent.setComponent(LIVE_TV_COMPONENT);
+            intent.putExtra("deviceName", tile.title);
+            intent.putExtra("inputName", tile.targetPackageOrInput);
+            intent.putExtra("bootcomplete", true);
+            intent.setData(uri);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
+
+            // Also send MediaTek TurnkeyReceiver$4 source broadcast as backup
+            Intent srcBcast = new Intent(LauncherModel.ACTION_MTK_SELECT_SOURCE);
+            srcBcast.putExtra(LauncherModel.EXTRA_MTK_SOURCE_NAME, tile.title.replace(" ", ""));
+            sendBroadcast(srcBcast);
         } catch (Throwable t) {
-            launchPackage(LauncherModel.LIVE_TV_PKG);
+            launchLiveTv();
+        }
+    }
+
+    private void showAllInstalledAppsDialog() {
+        try {
+            final PackageManager pm = getPackageManager();
+            final List<String> labels = new ArrayList<String>(32);
+            final List<String> pkgs = new ArrayList<String>(32);
+
+            String[] categories = new String[] {
+                Intent.CATEGORY_LEANBACK_LAUNCHER,
+                Intent.CATEGORY_LAUNCHER
+            };
+            for (int c = 0; c < categories.length; c++) {
+                Intent query = new Intent(Intent.ACTION_MAIN);
+                query.addCategory(categories[c]);
+                List<ResolveInfo> list = pm.queryIntentActivities(query, 0);
+                if (list != null) {
+                    for (int i = 0; i < list.size(); i++) {
+                        ResolveInfo ri = list.get(i);
+                        if (ri == null || ri.activityInfo == null) continue;
+                        String pkg = ri.activityInfo.packageName;
+                        if (pkg == null || getPackageName().equals(pkg) || pkgs.contains(pkg)) continue;
+                        CharSequence cs = ri.loadLabel(pm);
+                        String label = (cs != null && cs.length() > 0) ? cs.toString() : pkg;
+                        pkgs.add(pkg);
+                        labels.add(label + "  (" + pkg + ")");
+                    }
+                }
+            }
+
+            // Sort alphabetically by label
+            final Integer[] order = new Integer[labels.size()];
+            for (int i = 0; i < order.length; i++) order[i] = Integer.valueOf(i);
+            java.util.Arrays.sort(order, new Comparator<Integer>() {
+                @Override
+                public int compare(Integer a, Integer b) {
+                    return labels.get(a.intValue()).compareToIgnoreCase(labels.get(b.intValue()));
+                }
+            });
+
+            final String[] sortedLabels = new String[order.length];
+            final String[] sortedPkgs = new String[order.length];
+            for (int i = 0; i < order.length; i++) {
+                int idx = order[i].intValue();
+                sortedLabels[i] = labels.get(idx);
+                sortedPkgs[i] = pkgs.get(idx);
+            }
+
+            new AlertDialog.Builder(this)
+                .setTitle("Tutte le App installate (" + sortedLabels.length + ")")
+                .setItems(sortedLabels, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (which >= 0 && which < sortedPkgs.length) {
+                            launchPackage(sortedPkgs[which]);
+                        }
+                    }
+                })
+                .setNegativeButton("Chiudi", null)
+                .show();
+        } catch (Throwable t) {
+            openSystemSettings();
         }
     }
 
