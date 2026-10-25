@@ -21,7 +21,7 @@ public class LauncherModelTest {
         LauncherModel.Tile[] apps = model.getRowTiles(LauncherModel.ROW_APPS);
         assertEquals(6, apps.length);
         assertEquals("YouTube", apps[0].title);
-        assertEquals("HD 720p", apps[0].subtitle);
+        assertEquals("YouTube", apps[0].subtitle);
         assertEquals("com.google.android.youtube.tv", apps[0].targetPackageOrInput);
 
         assertEquals("Prime Video", apps[1].title);

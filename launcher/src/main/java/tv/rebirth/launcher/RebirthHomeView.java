@@ -259,11 +259,6 @@ public final class RebirthHomeView extends View implements Runnable {
         headerPaint.setColor(0xFFF8FAFC);
         canvas.drawText("REBIRTH", 64f, 54f, headerPaint);
 
-        subPaint.setTextAlign(Paint.Align.LEFT);
-        subPaint.setTextSize(14f);
-        subPaint.setColor(0xFF64748B);
-        canvas.drawText("JVC 32\" (720p)", 158f, 54f, subPaint);
-
         // Micro Top Strip (5 pills) - hoist invariant Paint state outside loop
         LauncherModel.Tile[] topTiles = model.getRowTiles(LauncherModel.ROW_TOP_STRIP);
         boolean topRowFocused = (model.getFocusedRow() == LauncherModel.ROW_TOP_STRIP);
@@ -383,7 +378,7 @@ public final class RebirthHomeView extends View implements Runnable {
         headerPaint.setTextAlign(Paint.Align.LEFT);
         headerPaint.setTextSize(12f);
         headerPaint.setColor(0xFF64748B);
-        canvas.drawText("CANALI RAPIDI TV (INFO  -  SCIENZA  -  CARTONI)", 64f, 346f, headerPaint);
+        canvas.drawText("CANALI RAPIDI TV", 64f, 346f, headerPaint);
 
         LauncherModel.Tile[] chs = model.getRowTiles(LauncherModel.ROW_CHANNELS);
         boolean rowFocused = (model.getFocusedRow() == LauncherModel.ROW_CHANNELS);
@@ -445,11 +440,7 @@ public final class RebirthHomeView extends View implements Runnable {
         subPaint.setTextAlign(Paint.Align.LEFT);
         subPaint.setTextSize(13f);
         subPaint.setColor(0xFF64748B);
-        canvas.drawText("[OK] Apri  |  [1..999] Canale diretto  |  [Tieni OK su App] Force-Stop  |  [Tieni OK su Settings] Tutte le App", 64f, 660f, subPaint);
-
-        subPaint.setTextAlign(Paint.Align.RIGHT);
-        subPaint.setColor(0xFF475569);
-        canvas.drawText("1280x720 Native  |  Zero-Bloat Engine", 1216f, 660f, subPaint);
+        canvas.drawText("[OK] Apri  |  [1..999] Canale diretto  |  [Tieni OK su App] Chiudi App  |  [Tieni OK su Settings] Tutte le App", 64f, 660f, subPaint);
     }
 
     private void drawDigitOverlayIfActive(Canvas canvas) {

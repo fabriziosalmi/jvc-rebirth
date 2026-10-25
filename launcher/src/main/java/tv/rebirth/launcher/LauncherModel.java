@@ -90,27 +90,27 @@ public final class LauncherModel {
         };
 
         this.appTiles = new Tile[] {
-            new Tile(ROW_APPS, 0, ACTION_LAUNCH_PACKAGE, "YouTube", "HD 720p",
+            new Tile(ROW_APPS, 0, ACTION_LAUNCH_PACKAGE, "YouTube", "YouTube",
                 "com.google.android.youtube.tv", 0, 0xFF2E1014, 0xFF121318, 0xFFEF4444),
             new Tile(ROW_APPS, 1, ACTION_LAUNCH_PACKAGE, "Prime Video", "Prime Video",
                 "com.amazon.amazonvideo.livingroom", 0, 0xFF0C2B45, 0xFF0A131F, 0xFF00A8E1),
-            new Tile(ROW_APPS, 2, ACTION_LAUNCH_PACKAGE, "DAZN", "DAZN Live",
+            new Tile(ROW_APPS, 2, ACTION_LAUNCH_PACKAGE, "DAZN", "DAZN",
                 "com.dazn", 0, 0xFF1E1E24, 0xFF121216, 0xFFFFFFFF),
             new Tile(ROW_APPS, 3, ACTION_LAUNCH_PACKAGE, "Disney+", "Disney+",
                 "com.disney.disneyplus", 0, 0xFF0A1936, 0xFF090D18, 0xFF38BDF8),
             new Tile(ROW_APPS, 4, ACTION_LAUNCH_PACKAGE, "RaiPlay", "RaiPlay",
                 "it.rainet.androidtv", 0, 0xFF0D2142, 0xFF0B111E, 0xFF2563EB),
-            new Tile(ROW_APPS, 5, ACTION_LAUNCH_PACKAGE, "TV", "DIGITALE DVB-T2",
+            new Tile(ROW_APPS, 5, ACTION_LAUNCH_PACKAGE, "TV", "Digitale Terrestre",
                 LIVE_TV_PKG, 0, 0xFF0369A1, 0xFF0F172A, 0xFF38BDF8)
         };
 
         this.channelTiles = new Tile[] {
-            new Tile(ROW_CHANNELS, 0, ACTION_TUNE_LCN, "Rai 1", "Rai 1 HD", LIVE_TV_PKG, 1, 0xFF0C192C, 0xFF0C192C, 0xFF1D4ED8),
-            new Tile(ROW_CHANNELS, 1, ACTION_TUNE_LCN, "Rai 3", "Rai 3 HD", LIVE_TV_PKG, 3, 0xFF091E16, 0xFF091E16, 0xFF15803D),
-            new Tile(ROW_CHANNELS, 2, ACTION_TUNE_LCN, "LA7", "LA7 HD", LIVE_TV_PKG, 7, 0xFF1F140E, 0xFF1F140E, 0xFFEA580C),
-            new Tile(ROW_CHANNELS, 3, ACTION_TUNE_LCN, "Focus", "Scienza", LIVE_TV_PKG, 35, 0xFF1C1117, 0xFF1C1117, 0xFFBE185D),
-            new Tile(ROW_CHANNELS, 4, ACTION_TUNE_LCN, "Rai Storia", "Storia & Doc", LIVE_TV_PKG, 54, 0xFF17160F, 0xFF17160F, 0xFFCA8A04),
-            new Tile(ROW_CHANNELS, 5, ACTION_TUNE_LCN, "Rai Scuola", "STEM & Scienza", LIVE_TV_PKG, 57, 0xFF111827, 0xFF111827, 0xFF0F766E),
+            new Tile(ROW_CHANNELS, 0, ACTION_TUNE_LCN, "Rai 1", "Rai 1", LIVE_TV_PKG, 1, 0xFF0C192C, 0xFF0C192C, 0xFF1D4ED8),
+            new Tile(ROW_CHANNELS, 1, ACTION_TUNE_LCN, "Rai 3", "Rai 3", LIVE_TV_PKG, 3, 0xFF091E16, 0xFF091E16, 0xFF15803D),
+            new Tile(ROW_CHANNELS, 2, ACTION_TUNE_LCN, "LA7", "LA7", LIVE_TV_PKG, 7, 0xFF1F140E, 0xFF1F140E, 0xFFEA580C),
+            new Tile(ROW_CHANNELS, 3, ACTION_TUNE_LCN, "Focus", "Focus", LIVE_TV_PKG, 35, 0xFF1C1117, 0xFF1C1117, 0xFFBE185D),
+            new Tile(ROW_CHANNELS, 4, ACTION_TUNE_LCN, "Rai Storia", "Rai Storia", LIVE_TV_PKG, 54, 0xFF17160F, 0xFF17160F, 0xFFCA8A04),
+            new Tile(ROW_CHANNELS, 5, ACTION_TUNE_LCN, "Rai Scuola", "Rai Scuola", LIVE_TV_PKG, 57, 0xFF111827, 0xFF111827, 0xFF0F766E),
             new Tile(ROW_CHANNELS, 6, ACTION_TUNE_LCN, "Rai Yoyo", "Rai Yoyo", LIVE_TV_PKG, 43, 0xFF1E112A, 0xFF1E112A, 0xFF9333EA),
             new Tile(ROW_CHANNELS, 7, ACTION_TUNE_LCN, "Boing", "Boing", LIVE_TV_PKG, 40, 0xFF0D1B2A, 0xFF0D1B2A, 0xFF2563EB),
             new Tile(ROW_CHANNELS, 8, ACTION_TUNE_LCN, "Cartoonito", "Cartoonito", LIVE_TV_PKG, 46, 0xFF1F1709, 0xFF1F1709, 0xFFEAB308)
