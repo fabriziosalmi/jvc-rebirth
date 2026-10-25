@@ -2,10 +2,13 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <TV_IP[:PORT]> (e.g., $0 192.168.1.100:5555)"
+  echo "Usage: $0 <TV_IP[:PORT]> [--rebirth]"
+  echo "  Default   : Installs general-purpose Projectivy Launcher (com.spocky.projengmenu)"
+  echo "  --rebirth : Installs ultra-lightweight Rebirth Launcher (tv.rebirth.launcher, 77.5 KB, Italian DVB-T2 preset)"
   exit 1
 fi
 TV_ADDR="$1"
+LAUNCHER_MODE="${2:-projectivy}"
 if [[ "$TV_ADDR" != *:* ]]; then
   TV_ADDR="${TV_ADDR}:5555"
 fi
@@ -15,16 +18,42 @@ mkdir -p "$APKS_DIR"
 
 adb connect "$TV_ADDR"
 
-echo "[1/6] Ensuring Projectivy Launcher is installed and set as default HOME..."
-if ! adb -s "$TV_ADDR" shell "pm list packages com.spocky.projengmenu" | grep -q "com.spocky.projengmenu"; then
-  LAUNCHER_APK="$(find "$APKS_DIR" -maxdepth 1 -name "ProjectivyLauncher*.apk" | head -n 1 || true)"
-  if [[ -z "$LAUNCHER_APK" ]]; then
-    echo "  -> Downloading Projectivy Launcher APK from official GitHub release..."
-    LAUNCHER_URL="$(curl -fsSL https://api.github.com/repos/spocky/miproja1/releases/latest | grep -Eo 'https://[^"]+\.apk' | head -n 1)"
-    LAUNCHER_APK="$APKS_DIR/ProjectivyLauncher-latest.apk"
-    curl -fL "$LAUNCHER_URL" -o "$LAUNCHER_APK"
+if [[ "$LAUNCHER_MODE" == "--rebirth" ]]; then
+  echo "[1/6] Ensuring Rebirth Launcher (tv.rebirth.launcher) is installed and set as default HOME..."
+  REBIRTH_APK="$APKS_DIR/RebirthLauncher-1.0.0.apk"
+  if [[ ! -f "$REBIRTH_APK" ]]; then
+    echo "  -> Downloading RebirthLauncher-1.0.0.apk from GitHub release..."
+    curl -fL "https://github.com/fabriziosalmi/jvc-rebirth/releases/download/v1.0.0/RebirthLauncher-1.0.0.apk" -o "$REBIRTH_APK"
   fi
-  adb -s "$TV_ADDR" install -r "$LAUNCHER_APK"
+  adb -s "$TV_ADDR" install -r "$REBIRTH_APK"
+  if ! adb -s "$TV_ADDR" shell "pm list packages tv.rebirth.launcher" | grep -q "tv.rebirth.launcher"; then
+    echo "[!] ERROR: Rebirth Launcher (tv.rebirth.launcher) is not installed. Aborting before disabling stock launcher."
+    exit 1
+  fi
+  adb -s "$TV_ADDR" shell "pm enable tv.rebirth.launcher 2>/dev/null" || true
+  adb -s "$TV_ADDR" shell "cmd package set-home-activity tv.rebirth.launcher/.MainActivity" || true
+  adb -s "$TV_ADDR" shell "pm disable-user --user 0 com.spocky.projengmenu 2>/dev/null; am force-stop com.spocky.projengmenu 2>/dev/null" || true
+  ACTIVE_HOME_COMPONENT="tv.rebirth.launcher/.MainActivity"
+else
+  echo "[1/6] Ensuring Projectivy Launcher (default) is installed and set as default HOME..."
+  if ! adb -s "$TV_ADDR" shell "pm list packages com.spocky.projengmenu" | grep -q "com.spocky.projengmenu"; then
+    LAUNCHER_APK="$(find "$APKS_DIR" -maxdepth 1 -name "ProjectivyLauncher*.apk" | head -n 1 || true)"
+    if [[ -z "$LAUNCHER_APK" ]]; then
+      echo "  -> Downloading Projectivy Launcher APK from official GitHub release..."
+      LAUNCHER_URL="$(curl -fsSL https://api.github.com/repos/spocky/miproja1/releases/latest | grep -Eo 'https://[^"]+\.apk' | head -n 1)"
+      LAUNCHER_APK="$APKS_DIR/ProjectivyLauncher-latest.apk"
+      curl -fL "$LAUNCHER_URL" -o "$LAUNCHER_APK"
+    fi
+    adb -s "$TV_ADDR" install -r "$LAUNCHER_APK"
+  fi
+  adb -s "$TV_ADDR" shell "pm enable com.spocky.projengmenu 2>/dev/null" || true
+  if ! adb -s "$TV_ADDR" shell "pm list packages com.spocky.projengmenu" | grep -q "com.spocky.projengmenu"; then
+    echo "[!] ERROR: Projectivy Launcher (com.spocky.projengmenu) is not installed. Aborting before disabling stock launcher."
+    exit 1
+  fi
+  adb -s "$TV_ADDR" shell "cmd package set-home-activity com.spocky.projengmenu/com.spocky.projengmenu.ui.home.MainActivity" || true
+  adb -s "$TV_ADDR" shell "pm disable-user --user 0 tv.rebirth.launcher 2>/dev/null; am force-stop tv.rebirth.launcher 2>/dev/null" || true
+  ACTIVE_HOME_COMPONENT="com.spocky.projengmenu/com.spocky.projengmenu.ui.home.MainActivity"
 fi
 
 if ! adb -s "$TV_ADDR" shell "pm list packages it.rainet.androidtv" | grep -q "it.rainet.androidtv"; then
@@ -46,12 +75,6 @@ if ! adb -s "$TV_ADDR" shell "pm list packages com.dazn" | grep -q "com.dazn"; t
       "$APKS_DIR/dazn/config.xhdpi.apk"
   fi
 fi
-
-if ! adb -s "$TV_ADDR" shell "pm list packages com.spocky.projengmenu" | grep -q "com.spocky.projengmenu"; then
-  echo "[!] ERROR: Projectivy Launcher (com.spocky.projengmenu) is not installed. Aborting before disabling stock launcher."
-  exit 1
-fi
-adb -s "$TV_ADDR" shell "cmd package set-home-activity com.spocky.projengmenu/com.spocky.projengmenu.ui.home.MainActivity" || true
 
 echo "[2/6] Disabling boot-verified bloatware packages..."
 # CRITICAL NOTE: Never disable FusedLocation, PacProcessor, OsuLogin, SecureElement,
@@ -189,6 +212,7 @@ for pkg in \
   com.vestel.tv.keycontroller \
   com.vestel.tv.service \
   com.vestel.tv.backlight \
+  tv.rebirth.launcher \
   com.spocky.projengmenu \
   com.android.systemui \
   com.android.tv.settings \
@@ -205,7 +229,7 @@ for pkg in \
 done
 '
 
-echo "[6/6] Trimming caches, running eMMC fstrim, and launching Projectivy Launcher..."
+echo "[6/6] Trimming caches, running eMMC fstrim, and launching active HOME ($ACTIVE_HOME_COMPONENT)..."
 adb -s "$TV_ADDR" shell "pm trim-caches 999999999999 && sm fstrim" || true
-adb -s "$TV_ADDR" shell "am start -n com.spocky.projengmenu/com.spocky.projengmenu.ui.home.MainActivity"
+adb -s "$TV_ADDR" shell "am start -n $ACTIVE_HOME_COMPONENT"
 echo "[+] Done."

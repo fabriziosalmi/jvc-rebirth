@@ -8,9 +8,16 @@ Step-by-step engineering guide, reverse-engineering notes, and automated toolkit
 git clone https://github.com/fabriziosalmi/jvc-rebirth.git
 cd jvc-rebirth
 chmod +x scripts/debloat.sh scripts/restore-stock.sh
+
+# Option A (Default - Recommended for general users):
+# Installs general-purpose Projectivy Launcher (dynamic app grid for any region)
 ./scripts/debloat.sh 192.168.1.100:5555
+
+# Option B (Optional --rebirth mode):
+# Installs our custom 77.57 KB Rebirth Launcher (Italian DVB-T2 LCN + streaming preset)
+./scripts/debloat.sh 192.168.1.100:5555 --rebirth
 ```
-Replace `192.168.1.100` with your TV's LAN IP address (requires **Settings -> Device Preferences -> Developer options -> USB debugging** enabled on the TV). If Projectivy Launcher is not already installed on the TV or placed in `apks/`, [`scripts/debloat.sh`](scripts/debloat.sh) automatically downloads the latest release APK from GitHub before disabling the stock launcher.
+Replace `192.168.1.100` with your TV's LAN IP address (requires **Settings -> Device Preferences -> Developer options -> USB debugging** enabled on the TV). By default, [`scripts/debloat.sh`](scripts/debloat.sh) installs **Projectivy Launcher** (`com.spocky.projengmenu`) so any user worldwide gets a configurable launcher out of the box; passing `--rebirth` instead installs **Rebirth Launcher** (`tv.rebirth.launcher`, see [Section 6](#6-optional-rebirth-launcher-tvrebirthlauncher---rebirth-mode)).
 
 ---
 
@@ -92,17 +99,22 @@ Every optimization in this repository was validated on the target hardware acros
    ```
 
 ### Step 2: Run the Automated Optimization Script
-Run [`scripts/debloat.sh`](scripts/debloat.sh), passing your TV's IP address:
+Run [`scripts/debloat.sh`](scripts/debloat.sh), passing your TV's IP address (add `--rebirth` if you want the custom 77.57 KB Italian DVB-T2 launcher instead of the default Projectivy Launcher):
 ```bash
+# Default (Projectivy Launcher):
 ./scripts/debloat.sh 192.168.1.100:5555
+
+# Optional (Rebirth Launcher 77.57 KB custom Italian preset):
+./scripts/debloat.sh 192.168.1.100:5555 --rebirth
 ```
 
 ![6-Stage Engineering Pipeline and Default System Overrides](assets/optimizations-overview.svg)
 
 What [`scripts/debloat.sh`](scripts/debloat.sh) performs automatically in 6 stages:
 1. **Launcher & App Sideloading (No Google Account Needed)**:
-   - Installs **Projectivy Launcher 4.72** (`com.spocky.projengmenu`), **RaiPlay** (`it.rainet.androidtv`), and **DAZN** (`com.dazn`).
-   - Overrides the default `HOME` activity (`cmd package set-home-activity com.spocky.projengmenu/com.spocky.projengmenu.ui.home.MainActivity`).
+   - **Default mode**: Installs **Projectivy Launcher** (`com.spocky.projengmenu`, general-purpose configurable TV launcher) and sets it as the default `HOME` activity.
+   - **Optional `--rebirth` mode**: Installs **Rebirth Launcher 1.0.0** (`tv.rebirth.launcher`, `77.57 KB` zero-allocation native launcher pre-configured with Italian DVB-T2 channels and streaming apps), disables `com.spocky.projengmenu` if present, and sets `tv.rebirth.launcher/.MainActivity` as the default `HOME` activity.
+   - If present in `apks/`, also sideloads **RaiPlay** (`it.rainet.androidtv`) and **DAZN** (`com.dazn`).
 2. **Boot-Safe System Debloat (29 Packages Disabled/Removed)**:
    - Disables 26 memory-hogging packages for `user 0`, including the stock Google TV Launcher (`tvlauncher`, `tvrecommendations`, `partnercustomizer`), Google Assistant (`katniss`), Google Play Store (`com.android.vending`), Wi-Fi Remote (`com.google.android.tv.remote.service`), `settings.intelligence`, `vestel.tv.eib`, `disclaimercustomization`, `vestelreporter`, `cltv.fast`, `freeviewplay`, and Calendar/Contacts sync adapters.
    - Uninstalls `com.spotify.tv.android`, `com.netflix.ninja`, and `com.google.android.marvin.talkback`.
@@ -175,9 +187,13 @@ On Vestel Android TV 11 (`RTOC.250820.001` / board `tokyo`), disabling any of th
 
 ---
 
-## 6. Rebirth Launcher (`tv.rebirth.launcher`): Zero-Bloat 720p Native TV Launcher
+## 6. Optional: Rebirth Launcher (`tv.rebirth.launcher`, `--rebirth` Mode)
 
-To eliminate the remaining footprint of third-party Android TV launchers on a 907 MB RAM board, this repository includes **Rebirth Launcher** ([`launcher/`](launcher/)), a custom zero-dependency native Android TV launcher engineered specifically for the JVC 32" (`1280x720` framebuffer, Vestel `17MB171` / MediaTek `m5621`).
+While **Projectivy Launcher** (`com.spocky.projengmenu`) is kept as the **default** in [`scripts/debloat.sh`](scripts/debloat.sh) so that general users in any country get a dynamic, GUI-configurable app grid out of the box, this repository also includes **Rebirth Launcher** ([`launcher/`](launcher/)), an optional (`--rebirth`) zero-dependency native Android TV launcher engineered specifically for our own daily-driver JVC 32" setup (`1280x720` framebuffer, Vestel `17MB171` / MediaTek `m5621`).
+
+> **When to use Default (`Projectivy`) vs. `--rebirth` (`Rebirth Launcher`)**:
+> - **Default (`./scripts/debloat.sh <TV_IP>`)**: Best for general users who want to customize rows, wallpapers, and installed apps directly from the TV UI.
+> - **`--rebirth` (`./scripts/debloat.sh <TV_IP> --rebirth`)**: Built for maximum RAM/CPU efficiency (`77.57 KB` APK vs `11.40 MB`, `5` DEX classes vs `7,592`) with a fixed, zero-allocation `1280x720` layout pre-configured for Italian streaming apps (`YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay`) and Italian DVB-T2 LCN channels (`1 Rai 1`, `3 Rai 3`, `7 LA7`, `35 Focus`, `54 Rai Storia`, `57 Rai Scuola`, `43 Rai Yoyo`, `40 Boing`, `46 Cartoonito`). Users in other countries can edit [`LauncherModel.java`](launcher/src/main/java/tv/rebirth/launcher/LauncherModel.java) and run `./launcher/build.sh` to bake their own channels and apps.
 
 ![Rebirth Launcher 1280x720 Native UI](assets/rebirth-launcher-preview.svg)
 

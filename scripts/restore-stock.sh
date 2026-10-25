@@ -52,5 +52,6 @@ settings put global window_animation_scale 1.0
 settings put global transition_animation_scale 1.0
 settings put global animator_duration_scale 1.0
 settings put global private_dns_mode opportunistic
+cmd package set-home-activity com.google.android.tvlauncher/com.google.android.tvlauncher.MainActivity 2>/dev/null || true
 '
 echo "[+] Stock restore completed."
