@@ -1,5 +1,7 @@
 apks/*.apk
+apks/*.idsig
 apks/*.xapk
 apks/raiplay/
 apks/dazn/
+launcher/build/
 .DS_Store

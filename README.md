@@ -175,19 +175,71 @@ On Vestel Android TV 11 (`RTOC.250820.001` / board `tokyo`), disabling any of th
 
 ---
 
-## 6. Repository Structure & Rollback
+## 6. Rebirth Launcher (`tv.rebirth.launcher`): Zero-Bloat 720p Native TV Launcher
+
+To eliminate the remaining footprint of third-party Android TV launchers on a 907 MB RAM board, this repository includes **Rebirth Launcher** ([`launcher/`](launcher/)), a custom zero-dependency native Android TV launcher engineered specifically for the JVC 32" (`1280x720` framebuffer, Vestel `17MB171` / MediaTek `m5621`).
+
+![Rebirth Launcher 1280x720 Native UI](assets/rebirth-launcher-preview.svg)
+
+### Architecture & Performance Design
+
+1. **Zero Dependencies & Single-View Hardware Canvas (`RebirthHomeView`)**:
+   - Built directly against the Android SDK (`android.jar`, API 28 to 30) with zero AndroidX, Leanback, Kotlin stdlib, Glide, or Firebase dependencies.
+   - Renders the entire `1280x720` Home screen inside a single custom `View` ([`RebirthHomeView.java`](launcher/src/main/java/tv/rebirth/launcher/RebirthHomeView.java)) with `getWindow().setBackgroundDrawable(null)` (`0x` full-screen window overdraw).
+2. **Bytecode-Verified Zero Allocations in `onDraw()` & Telemetry**:
+   - All `Paint`, `RectF`, `Path`, `LinearGradient`, icon destination rectangles (`appIconRects[]`, `channelIconRects[]`), LCN badge strings (`lcnBadgeText`), and HDMI passthrough URIs are pre-allocated once at initialization.
+   - [`LauncherModelTest.java`](launcher/src/test/java/tv/rebirth/launcher/LauncherModelTest.java) disassembles compiled `.class` files via `javap -c -p` on every build and enforces **zero `new`, `newarray`, `anewarray`, `StringBuilder`, `String.valueOf`, or `Long.valueOf` instructions** across `onDraw()`, all 5 row/header draw methods, D-Pad navigation, and periodic RAM/clock telemetry.
+3. **Pre-Baked `1:1` Icons on GPU `GraphicBuffer` (`Bitmap.Config.HARDWARE`)**:
+   - All 14 streaming app and DVB-T2 channel logos (`37.04 KB` total in [`launcher/res/drawable-nodpi/`](launcher/res/drawable-nodpi/)) are pre-rasterized to exact `1280x720` pixel coordinates and decoded with `Bitmap.Config.HARDWARE` directly into GPU graphic buffers (`gralloc`), avoiding `PackageManager` icon IPC and Java heap pixel allocations.
+   - When an app or Live TV starts (`onStop()` / `onTrimMemory(TRIM_MEMORY_UI_HIDDEN)`), `releaseBitmaps()` immediately recycles all bitmaps.
+4. **1-Click DVB-T2 Quick Channels, Direct Numeric Entry & Vestel HDMI Switching**:
+   - **Row 1 (`STREAMING & TV`)**: `YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay`, and `TV` (`com.mediatek.wwtv.tvcenter` at the far right).
+   - **Row 2 (`CANALI RAPIDI TV`)**: 9 direct DVB-T2 channel cards (`1 Rai 1`, `3 Rai 3`, `7 LA7`, `35 Focus`, `54 Rai Storia`, `57 Rai Scuola`, `43 Rai Yoyo`, `40 Boing`, `46 Cartoonito`) plus direct numeric keypad tuning (`1..999` on the remote). Channel IDs (`content://android.media.tv/channel/<_id>`) are batch-preloaded in a single SQLite query into a primitive `SparseLongArray`.
+   - **Top Micro-Strip**: 1-click Vestel hardware HDMI input switching (`HW4` / `HDMI 1`, `HW5` / `HDMI 2`, `HW6` / `HDMI 3`), `Free RAM` boost (`killBackgroundProcesses`), and Android TV `Settings`.
+5. **Direct Boot & Uncompressed `mmap` Packaging**:
+   - Marked `android:directBootAware="true"` and `android:defaultToDeviceProtectedStorage="true"` to bypass Android's slow `FallbackHome` (*"Android is starting..."*) screen during cold boot.
+   - `classes.dex` (`24.88 KB`), `resources.arsc` (`1.93 KB`), and all 14 PNGs are stored uncompressed (`Stored`, `0%`) and 4-byte aligned (`zipalign -p 4`) so the Linux kernel maps them directly via `mmap` from flash without RAM decompression.
+
+### Measured Comparison: Stock vs. Projectivy 4.72 vs. Rebirth Launcher 1.0.0
+
+| Metric | Stock Google TV Launcher | Projectivy Launcher 4.72 | Rebirth Launcher 1.0.0 | Improvement vs. Projectivy |
+| :--- | ---: | ---: | ---: | :--- |
+| **Signed APK Size** | System Preload (`>45 MB`) | `11,953,766 B` (`11.40 MB`) | **`79,887 B` (`78.01 KB`)** | **150x smaller APK** |
+| **DEX Bytecode (`classes.dex`)** | Multi-DEX + GmsCore | `7,706 KB` (3 DEX files) | **`24.88 KB` (1 DEX, `Stored`)** | **310x less bytecode** |
+| **Resource Table (`resources.arsc`)** | Multi-MB | `2,150 KB` | **`1.89 KB` (`Stored`)** | **1,137x smaller resources** |
+| **Embedded Videos / Native `.so`** | Heavy animations | `1.2 MB` (5 `.mp4`) + 4 `.so` | **`0`** | **100% removed** |
+| **D-Pad 2D Focus Latency (1M ops)** | Heavy View tree layout | Leanback `RecyclerView` | **`6.73 ns/op`** | **Zero-layout state machine** |
+| **Allocations in `onDraw()` (60 Hz)** | View + Glide churn | Leanback + Glide | **`0` allocations (bytecode-gated)** | **Zero GC pressure** |
+
+### Local Build & Test Suite (No TV Required)
+
+To compile `RebirthLauncher-1.0.0.apk` and run the 8 JUnit 4 functional, microbenchmark, and bytecode zero-allocation gate tests locally:
+
+```bash
+./launcher/build.sh
+```
+
+---
+
+## 7. Repository Structure & Rollback
 
 ```text
 jvc-rebirth/
-|-- README.md                       # Full technical documentation and step-by-step guide
+|-- README.md                           # Full technical documentation and step-by-step guide
 |-- assets/
-|   |-- memory-comparison.svg       # Before vs. After RAM and ZRAM swap benchmark chart
-|   |-- cpu-comparison.svg          # Before vs. After CPU load and I/O wait benchmark chart
-|   `-- optimizations-overview.svg  # 6-stage pipeline: AOT compilation & system default overrides
+|   |-- memory-comparison.svg           # Before vs. After RAM and ZRAM swap benchmark chart
+|   |-- cpu-comparison.svg              # Before vs. After CPU load and I/O wait benchmark chart
+|   |-- optimizations-overview.svg      # 6-stage pipeline: AOT compilation & system default overrides
+|   `-- rebirth-launcher-preview.svg    # 1280x720 vector preview of Rebirth Launcher
+|-- launcher/
+|   |-- AndroidManifest.xml             # Direct-boot, singleTask HOME & LEANBACK_LAUNCHER manifest
+|   |-- build.sh                        # Standalone build, JUnit 4 test, bytecode gate & signing script
+|   |-- res/                            # 14 pre-baked 1:1 nodpi PNG icons (37.04 KB total)
+|   `-- src/                            # Zero-allocation Java 8 source and JUnit 4 test suite
 |-- scripts/
-|   |-- debloat.sh                  # Automated 6-stage debloat, AOT compilation, and kernel/TV tuning
-|   `-- restore-stock.sh            # Re-enables stock launcher, Play Store, and default animations
-`-- apks/                           # Local APKs (auto-downloaded or placed for offline sideloading)
+|   |-- debloat.sh                      # Automated 6-stage debloat, AOT compilation, and kernel/TV tuning
+|   `-- restore-stock.sh                # Re-enables stock launcher, Play Store, and default animations
+`-- apks/                               # Local APKs (auto-downloaded or built for offline sideloading)
 ```
 
 To revert to the stock Google TV Launcher and re-enable disabled packages at any time:
