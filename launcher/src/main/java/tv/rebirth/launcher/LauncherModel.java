@@ -74,7 +74,6 @@ public final class LauncherModel {
     private int focusedRow = ROW_APPS;
     private int focusedCol = 0;
     private int digitBuffer = 0;
-    private String digitOverlayText = "";
 
     public LauncherModel() {
         this.topStripTiles = new Tile[] {
@@ -194,14 +193,12 @@ public final class LauncherModel {
         } else {
             digitBuffer = next;
         }
-        digitOverlayText = "CH " + digitBuffer;
         return digitBuffer;
     }
 
     public int consumeDigitBuffer() {
         int val = digitBuffer;
         digitBuffer = 0;
-        digitOverlayText = "";
         return val;
     }
 
@@ -209,8 +206,70 @@ public final class LauncherModel {
         return digitBuffer;
     }
 
-    public String getDigitOverlayText() {
-        return digitOverlayText;
+    public static void formatClockChars(int hour, int minute, char[] out) {
+        if (hour < 0) hour = 0;
+        if (hour > 23) hour = hour % 24;
+        if (minute < 0) minute = 0;
+        if (minute > 59) minute = minute % 60;
+        out[0] = (char) ('0' + (hour / 10));
+        out[1] = (char) ('0' + (hour % 10));
+        out[2] = ':';
+        out[3] = (char) ('0' + (minute / 10));
+        out[4] = (char) ('0' + (minute % 10));
+    }
+
+    public static int formatRamChars(long freeMb, char[] out) {
+        if (freeMb < 0L) freeMb = 0L;
+        if (freeMb > 9999L) freeMb = 9999L;
+        int v = (int) freeMb;
+        int idx = 0;
+        if (v >= 1000) {
+            out[idx++] = (char) ('0' + (v / 1000));
+            v %= 1000;
+            out[idx++] = (char) ('0' + (v / 100));
+            v %= 100;
+            out[idx++] = (char) ('0' + (v / 10));
+            out[idx++] = (char) ('0' + (v % 10));
+        } else if (v >= 100) {
+            out[idx++] = (char) ('0' + (v / 100));
+            v %= 100;
+            out[idx++] = (char) ('0' + (v / 10));
+            out[idx++] = (char) ('0' + (v % 10));
+        } else if (v >= 10) {
+            out[idx++] = (char) ('0' + (v / 10));
+            out[idx++] = (char) ('0' + (v % 10));
+        } else {
+            out[idx++] = (char) ('0' + v);
+        }
+        out[idx++] = ' ';
+        out[idx++] = 'M';
+        out[idx++] = 'B';
+        out[idx++] = ' ';
+        out[idx++] = 'f';
+        out[idx++] = 'r';
+        out[idx++] = 'e';
+        out[idx++] = 'e';
+        return idx;
+    }
+
+    public static int formatDigitOverlayChars(int digits, char[] out) {
+        if (digits <= 0) return 0;
+        out[0] = 'C';
+        out[1] = 'H';
+        out[2] = ' ';
+        int idx = 3;
+        if (digits >= 100) {
+            out[idx++] = (char) ('0' + (digits / 100));
+            int rem = digits % 100;
+            out[idx++] = (char) ('0' + (rem / 10));
+            out[idx++] = (char) ('0' + (rem % 10));
+        } else if (digits >= 10) {
+            out[idx++] = (char) ('0' + (digits / 10));
+            out[idx++] = (char) ('0' + (digits % 10));
+        } else {
+            out[idx++] = (char) ('0' + digits);
+        }
+        return idx;
     }
 
     public static String buildPassthroughInputUri(String inputId) {

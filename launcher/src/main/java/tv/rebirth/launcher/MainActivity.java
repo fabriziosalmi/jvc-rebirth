@@ -15,6 +15,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.provider.Settings;
 import android.util.SparseLongArray;
 import android.view.KeyEvent;
@@ -22,15 +23,16 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Toast;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
+import java.util.TimeZone;
 
-public final class MainActivity extends Activity implements RebirthHomeView.ActionListener {
+public final class MainActivity extends Activity
+        implements RebirthHomeView.ActionListener, Handler.Callback, DialogInterface.OnClickListener {
+
+    private static final int MSG_REFRESH_STATUS = 1;
+    private static final int MSG_DELAYED_CHANNEL_BCAST = 2;
+    private static final int MSG_DELAYED_UPDOWN_BCAST = 3;
 
     private static final String[] CHANNEL_PROJECTION = new String[] { "_id", "display_number" };
     private static final Uri CHANNELS_CONTENT_URI = Uri.parse("content://android.media.tv/channel");
@@ -42,22 +44,23 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
     private LauncherModel model;
     private RebirthHomeView homeView;
     private ActivityManager activityManager;
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.ROOT);
-    private final Date reusableDate = new Date();
+    private final Handler handler = new Handler(Looper.getMainLooper(), this);
+    private final TimeZone timeZone = TimeZone.getDefault();
     private final ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
     private final SparseLongArray lcnToChannelIdCache = new SparseLongArray(64);
-    private boolean channelsPreloaded = false;
-    private long lastClockMinute = -1L;
-    private String cachedClockText = "20:15";
 
-    private final Runnable statusRefreshRunnable = new Runnable() {
-        @Override
-        public void run() {
-            refreshHeaderTelemetry();
-            handler.postDelayed(this, 10000L);
-        }
-    };
+    // Zero-IPC launch Intent cache for the 5 streaming apps + Settings
+    private final String[] cachedPkgKeys = new String[8];
+    private final Intent[] cachedPkgIntents = new Intent[8];
+    private int cachedPkgCount = 0;
+
+    private boolean channelsPreloaded = false;
+    private long lastTzCheckHour = -1L;
+    private int cachedTzOffsetMs = 0;
+    private String pendingChannelNum = "";
+    private String pendingChannelName = "";
+    private boolean pendingChannelUp = true;
+    private String[] dialogSortedPkgs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,14 +87,15 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
             homeView.ensureBitmapsLoaded();
             homeView.requestFocus();
         }
-        handler.removeCallbacks(statusRefreshRunnable);
-        statusRefreshRunnable.run();
+        handler.removeMessages(MSG_REFRESH_STATUS);
+        refreshHeaderTelemetry();
+        handler.sendEmptyMessageDelayed(MSG_REFRESH_STATUS, 10000L);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        handler.removeCallbacks(statusRefreshRunnable);
+        handler.removeMessages(MSG_REFRESH_STATUS);
     }
 
     @Override
@@ -115,17 +119,39 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
         launchLiveTv();
     }
 
+    @Override
+    public boolean handleMessage(Message msg) {
+        switch (msg.what) {
+            case MSG_REFRESH_STATUS:
+                refreshHeaderTelemetry();
+                handler.sendEmptyMessageDelayed(MSG_REFRESH_STATUS, 10000L);
+                return true;
+            case MSG_DELAYED_CHANNEL_BCAST:
+                sendMtkSelectChannelBroadcast(pendingChannelNum, pendingChannelName);
+                return true;
+            case MSG_DELAYED_UPDOWN_BCAST:
+                sendMtkChannelUpDownBroadcast(pendingChannelUp);
+                return true;
+        }
+        return false;
+    }
+
     private void refreshHeaderTelemetry() {
         if (homeView == null) return;
         long nowMs = System.currentTimeMillis();
-        long currentMinute = nowMs / 60000L;
-        if (currentMinute != lastClockMinute) {
-            lastClockMinute = currentMinute;
-            reusableDate.setTime(nowMs);
-            cachedClockText = timeFormat.format(reusableDate);
+        long epochHour = nowMs / 3600000L;
+        if (epochHour != lastTzCheckHour) {
+            lastTzCheckHour = epochHour;
+            cachedTzOffsetMs = timeZone.getOffset(nowMs);
         }
+        long localMs = nowMs + cachedTzOffsetMs;
+        int totalMinutes = (int) ((localMs / 60000L) % 1440L);
+        if (totalMinutes < 0) totalMinutes += 1440;
+        int hour = totalMinutes / 60;
+        int minute = totalMinutes % 60;
+
         long freeMb = getAvailableMemoryMb();
-        homeView.updateStatus(cachedClockText, freeMb);
+        homeView.updateStatus(hour, minute, freeMb);
     }
 
     private long getAvailableMemoryMb() {
@@ -195,17 +221,13 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
     }
 
     @Override
-    public void onLiveTvShortcutKey(final int keyCode) {
+    public void onLiveTvShortcutKey(int keyCode) {
         launchLiveTv();
         if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP || keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN) {
-            final boolean isUp = (keyCode == KeyEvent.KEYCODE_CHANNEL_UP);
-            sendMtkChannelUpDownBroadcast(isUp);
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    sendMtkChannelUpDownBroadcast(isUp);
-                }
-            }, 350L);
+            pendingChannelUp = (keyCode == KeyEvent.KEYCODE_CHANNEL_UP);
+            sendMtkChannelUpDownBroadcast(pendingChannelUp);
+            handler.removeMessages(MSG_DELAYED_UPDOWN_BCAST);
+            handler.sendEmptyMessageDelayed(MSG_DELAYED_UPDOWN_BCAST, 350L);
         }
     }
 
@@ -221,25 +243,48 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
         }
     }
 
+    private Intent findCachedLaunchIntent(String pkg) {
+        for (int i = 0; i < cachedPkgCount; i++) {
+            if (pkg.equals(cachedPkgKeys[i])) {
+                return cachedPkgIntents[i];
+            }
+        }
+        return null;
+    }
+
+    private void putCachedLaunchIntent(String pkg, Intent intent) {
+        if (cachedPkgCount < cachedPkgKeys.length) {
+            cachedPkgKeys[cachedPkgCount] = pkg;
+            cachedPkgIntents[cachedPkgCount] = intent;
+            cachedPkgCount++;
+        }
+    }
+
     private void launchPackage(String pkg) {
         try {
-            PackageManager pm = getPackageManager();
-            Intent intent = pm.getLeanbackLaunchIntentForPackage(pkg);
+            Intent intent = findCachedLaunchIntent(pkg);
             if (intent == null) {
-                intent = pm.getLaunchIntentForPackage(pkg);
-            }
-            if (intent == null) {
-                Intent query = new Intent(Intent.ACTION_MAIN);
-                query.setPackage(pkg);
-                List<ResolveInfo> list = pm.queryIntentActivities(query, 0);
-                if (list != null && !list.isEmpty()) {
-                    ResolveInfo ri = list.get(0);
-                    intent = new Intent(Intent.ACTION_MAIN);
-                    intent.setComponent(new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name));
+                PackageManager pm = getPackageManager();
+                intent = pm.getLeanbackLaunchIntentForPackage(pkg);
+                if (intent == null) {
+                    intent = pm.getLaunchIntentForPackage(pkg);
+                }
+                if (intent == null) {
+                    Intent query = new Intent(Intent.ACTION_MAIN);
+                    query.setPackage(pkg);
+                    List<ResolveInfo> list = pm.queryIntentActivities(query, 0);
+                    if (list != null && !list.isEmpty()) {
+                        ResolveInfo ri = list.get(0);
+                        intent = new Intent(Intent.ACTION_MAIN);
+                        intent.setComponent(new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name));
+                    }
+                }
+                if (intent != null) {
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    putCachedLaunchIntent(pkg, intent);
                 }
             }
             if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
             } else {
                 Toast.makeText(this, "App non installata: " + pkg, Toast.LENGTH_SHORT).show();
@@ -249,9 +294,9 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
         }
     }
 
-    private void tuneToChannelLcn(final int lcn, final String channelTitle) {
-        final String numStr = String.valueOf(lcn);
-        final String safeName = (channelTitle != null) ? channelTitle : "";
+    private void tuneToChannelLcn(int lcn, String channelTitle) {
+        pendingChannelNum = String.valueOf(lcn);
+        pendingChannelName = (channelTitle != null) ? channelTitle : "";
         boolean launchedWithUri = false;
         try {
             long channelId = resolveChannelIdForLcn(lcn);
@@ -272,15 +317,9 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
             launchLiveTv();
         }
 
-        // Also send MediaTek TurnkeyReceiver$6 broadcast ("com.mediatek.tv.selectchannel")
-        // so SVL/TIFChannelManager tunes even when Android tv.db is empty
-        sendMtkSelectChannelBroadcast(numStr, safeName);
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                sendMtkSelectChannelBroadcast(numStr, safeName);
-            }
-        }, 350L);
+        sendMtkSelectChannelBroadcast(pendingChannelNum, pendingChannelName);
+        handler.removeMessages(MSG_DELAYED_CHANNEL_BCAST);
+        handler.sendEmptyMessageDelayed(MSG_DELAYED_CHANNEL_BCAST, 350L);
     }
 
     private void sendMtkSelectChannelBroadcast(String channelNum, String channelName) {
@@ -364,7 +403,6 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
 
-            // Also send MediaTek TurnkeyReceiver$4 source broadcast as backup
             Intent srcBcast = new Intent(LauncherModel.ACTION_MTK_SELECT_SOURCE);
             srcBcast.putExtra(LauncherModel.EXTRA_MTK_SOURCE_NAME, tile.title.replace(" ", ""));
             sendBroadcast(srcBcast);
@@ -375,9 +413,9 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
 
     private void showAllInstalledAppsDialog() {
         try {
-            final PackageManager pm = getPackageManager();
-            final List<String> labels = new ArrayList<String>(32);
-            final List<String> pkgs = new ArrayList<String>(32);
+            PackageManager pm = getPackageManager();
+            List<String> labels = new ArrayList<String>(32);
+            List<String> pkgs = new ArrayList<String>(32);
 
             String[] categories = new String[] {
                 Intent.CATEGORY_LEANBACK_LAUNCHER,
@@ -401,34 +439,28 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
                 }
             }
 
-            // Sort alphabetically by label
-            final Integer[] order = new Integer[labels.size()];
-            for (int i = 0; i < order.length; i++) order[i] = Integer.valueOf(i);
-            java.util.Arrays.sort(order, new Comparator<Integer>() {
-                @Override
-                public int compare(Integer a, Integer b) {
-                    return labels.get(a.intValue()).compareToIgnoreCase(labels.get(b.intValue()));
-                }
-            });
+            int n = labels.size();
+            String[] sortedLabels = labels.toArray(new String[n]);
+            String[] sortedPkgs = pkgs.toArray(new String[n]);
 
-            final String[] sortedLabels = new String[order.length];
-            final String[] sortedPkgs = new String[order.length];
-            for (int i = 0; i < order.length; i++) {
-                int idx = order[i].intValue();
-                sortedLabels[i] = labels.get(idx);
-                sortedPkgs[i] = pkgs.get(idx);
+            // In-place insertion sort (zero Integer boxing, zero Comparator inner class)
+            for (int i = 1; i < n; i++) {
+                String curLabel = sortedLabels[i];
+                String curPkg = sortedPkgs[i];
+                int j = i - 1;
+                while (j >= 0 && sortedLabels[j].compareToIgnoreCase(curLabel) > 0) {
+                    sortedLabels[j + 1] = sortedLabels[j];
+                    sortedPkgs[j + 1] = sortedPkgs[j];
+                    j--;
+                }
+                sortedLabels[j + 1] = curLabel;
+                sortedPkgs[j + 1] = curPkg;
             }
 
+            this.dialogSortedPkgs = sortedPkgs;
             new AlertDialog.Builder(this)
-                .setTitle("Tutte le App installate (" + sortedLabels.length + ")")
-                .setItems(sortedLabels, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        if (which >= 0 && which < sortedPkgs.length) {
-                            launchPackage(sortedPkgs[which]);
-                        }
-                    }
-                })
+                .setTitle("Tutte le App installate (" + n + ")")
+                .setItems(sortedLabels, this)
                 .setNegativeButton("Chiudi", null)
                 .show();
         } catch (Throwable t) {
@@ -436,13 +468,19 @@ public final class MainActivity extends Activity implements RebirthHomeView.Acti
         }
     }
 
+    @Override
+    public void onClick(DialogInterface dialog, int which) {
+        if (dialogSortedPkgs != null && which >= 0 && which < dialogSortedPkgs.length) {
+            launchPackage(dialogSortedPkgs[which]);
+        }
+    }
+
     private void freeBackgroundRam() {
         long beforeMb = getAvailableMemoryMb();
         try {
-            ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-            if (am != null) {
+            if (activityManager != null) {
                 for (String pkg : LauncherModel.BACKGROUND_KILL_TARGETS) {
-                    am.killBackgroundProcesses(pkg);
+                    activityManager.killBackgroundProcesses(pkg);
                 }
             }
             System.gc();

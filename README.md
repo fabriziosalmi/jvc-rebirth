@@ -186,36 +186,37 @@ To eliminate the remaining footprint of third-party Android TV launchers on a 90
 1. **Zero Dependencies & Single-View Hardware Canvas (`RebirthHomeView`)**:
    - Built directly against the Android SDK (`android.jar`, API 28 to 30) with zero AndroidX, Leanback, Kotlin stdlib, Glide, or Firebase dependencies.
    - Renders the entire `1280x720` Home screen inside a single custom `View` ([`RebirthHomeView.java`](launcher/src/main/java/tv/rebirth/launcher/RebirthHomeView.java)) with `getWindow().setBackgroundDrawable(null)` (`0x` full-screen window overdraw).
-2. **Bytecode-Verified Zero Allocations in `onDraw()` & Telemetry**:
-   - All `Paint`, `RectF`, `Path`, `LinearGradient`, icon destination rectangles (`appIconRects[]`, `channelIconRects[]`), LCN badge strings (`lcnBadgeText`), and HDMI passthrough URIs are pre-allocated once at initialization.
-   - [`LauncherModelTest.java`](launcher/src/test/java/tv/rebirth/launcher/LauncherModelTest.java) disassembles compiled `.class` files via `javap -c -p` on every build and enforces **zero `new`, `newarray`, `anewarray`, `StringBuilder`, `String.valueOf`, or `Long.valueOf` instructions** across `onDraw()`, all 5 row/header draw methods, D-Pad navigation, and periodic RAM/clock telemetry.
+2. **Bytecode-Verified Zero Allocations in `onDraw()`, `updateStatus()` & Telemetry**:
+   - All `Paint`, `RectF`, `LinearGradient`, icon destination rectangles (`appIconRects[]`, `channelIconRects[]`), LCN badge strings (`lcnBadgeText`), HDMI passthrough URIs, and mutable `char[]` buffers (`clockChars`, `ramChars`, `digitChars`) are pre-allocated once at initialization.
+   - Clock (`HH:mm`), free RAM (`XXX MB free`), and channel digits (`CH XXX`) are formatted in-place into `char[]` arrays via integer arithmetic (zero `SimpleDateFormat`, zero `Date`, zero `String` allocations) and rendered via `Canvas.drawText(char[], int, int, float, float, Paint)` with dirty-rectangle invalidation (`invalidate(950, 24, 1225, 64)`, shading only `1.19%` of the 720p framebuffer on status updates).
+   - [`LauncherModelTest.java`](launcher/src/test/java/tv/rebirth/launcher/LauncherModelTest.java) disassembles compiled `.class` files via `javap -c -p` on every build and enforces **zero `new`, `newarray`, `anewarray`, `StringBuilder`, `String.valueOf`, `Long.valueOf`, or CPU `SkPath` (`android/graphics/Path`) instructions** across `onDraw()`, all 5 row/header draw methods, `updateStatus()`, D-Pad navigation, and periodic RAM/clock telemetry.
 3. **Pre-Baked `1:1` Icons on GPU `GraphicBuffer` (`Bitmap.Config.HARDWARE`)**:
    - All 14 streaming app and DVB-T2 channel logos (`37.04 KB` total in [`launcher/res/drawable-nodpi/`](launcher/res/drawable-nodpi/)) are pre-rasterized to exact `1280x720` pixel coordinates and decoded with `Bitmap.Config.HARDWARE` directly into GPU graphic buffers (`gralloc`), avoiding `PackageManager` icon IPC and Java heap pixel allocations.
    - When an app or Live TV starts (`onStop()` / `onTrimMemory(TRIM_MEMORY_UI_HIDDEN)`), `releaseBitmaps()` immediately recycles all bitmaps.
 4. **1-Click DVB-T2 Quick Channels, Direct Numeric Entry & MediaTek Turnkey Integration**:
-   - **Row 1 (`STREAMING & TV`)**: `YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay`, and `TV` (`com.mediatek.wwtv.tvcenter/.nav.TurnkeyUiMainActivity` at the far right).
+   - **Row 1 (`STREAMING & TV`)**: `YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay` (with resolved launch `Intent`s cached in-memory so subsequent launches perform `0` `PackageManager` Binder IPC calls), and `TV` (`com.mediatek.wwtv.tvcenter/.nav.TurnkeyUiMainActivity` at the far right).
    - **Row 2 (`CANALI RAPIDI TV`)**: 9 direct DVB-T2 channel cards (`1 Rai 1`, `3 Rai 3`, `7 LA7`, `35 Focus`, `54 Rai Storia`, `57 Rai Scuola`, `43 Rai Yoyo`, `40 Boing`, `46 Cartoonito`) plus direct numeric keypad tuning (`1..999`) and `CH+` / `CH-` / `TV` / `GUIDE` remote key passthrough. Because MediaTek's `LiveTV.apk` stores DVB-T2 channels in its native `SVL` (`TIFChannelManager`) table rather than Android's `tv.db`, `MainActivity` drives both standard `TvContract` URIs and MediaTek's `TurnkeyReceiver` broadcasts (`com.mediatek.tv.selectchannel` with `channelNum`, and `com.mediatek.tv.channelupdown`).
    - **Top Micro-Strip**: 1-click Vestel hardware HDMI input switching (`HW4` / `HDMI 1`, `HW5` / `HDMI 2`, `HW6` / `HDMI 3` targeting `TurnkeyUiMainActivity` with `bootcomplete=true`, `inputName`, `deviceName`, and `com.mediatek.select.source`), `Free RAM` boost (`killBackgroundProcesses`), and Android TV `Settings` (short press opens System Settings; long press `OK` or `MENU` opens a lazy, zero-idle-RAM native dialog of all installed apps).
 5. **Direct Boot & Uncompressed `mmap` Packaging**:
    - Marked `android:directBootAware="true"` and `android:defaultToDeviceProtectedStorage="true"` to bypass Android's slow `FallbackHome` (*"Android is starting..."*) screen during cold boot.
-   - `classes.dex` (`29.10 KB`), `resources.arsc` (`1.89 KB`), and all 14 PNGs are stored uncompressed (`Stored`, `0%`) and 4-byte aligned (`zipalign -p 4`) so the Linux kernel maps them directly via `mmap` from flash without RAM decompression.
+   - `classes.dex` (`26.07 KB`, 5 classes total, 0 synthetic `access$` bridges), `resources.arsc` (`1.89 KB`), and all 14 PNGs are stored uncompressed (`Stored`, `0%`) and 4-byte aligned (`zipalign -p 4`) so the Linux kernel maps them directly via `mmap` from flash without RAM decompression.
 
 ### Measured Comparison: Stock vs. Projectivy 4.72 vs. Rebirth Launcher 1.0.0
 
 | Metric | Stock Google TV Launcher | Projectivy Launcher 4.72 | Rebirth Launcher 1.0.0 | Improvement vs. Projectivy |
 | :--- | ---: | ---: | ---: | :--- |
-| **Signed APK Size** | System Preload (`>45 MB`) | `11,953,766 B` (`11.40 MB`) | **`83,527 B` (`81.57 KB`)** | **143x smaller APK** |
-| **DEX Bytecode (`classes.dex`)** | Multi-DEX + GmsCore | `7,706 KB` (3 DEX files) | **`29.10 KB` (1 DEX, `Stored`)** | **264x less bytecode** |
-| **DEX Classes / Methods** | Thousands | `7,592` classes / `59,219` methods | **`13` classes / `202` methods** | **584x fewer classes** |
+| **Signed APK Size** | System Preload (`>45 MB`) | `11,953,766 B` (`11.40 MB`) | **`79,431 B` (`77.57 KB`)** | **150x smaller APK** |
+| **DEX Bytecode (`classes.dex`)** | Multi-DEX + GmsCore | `7,706 KB` (3 DEX files) | **`26.07 KB` (1 DEX, `Stored`)** | **295x less bytecode** |
+| **DEX Classes / Methods** | Thousands | `7,592` classes / `59,219` methods | **`5` classes / `196` methods** | **1,518x fewer classes** |
 | **Manifest Components** | Services + Providers | `59` Act / `13` Svc / `16` Rcv / `4` Prv | **`1` Act / `0` Svc / `0` Rcv / `0` Prv** | **Zero background components** |
 | **Resource Table (`resources.arsc`)** | Multi-MB | `2,150 KB` | **`1.89 KB` (`Stored`)** | **1,137x smaller resources** |
 | **Embedded Videos / Native `.so`** | Heavy animations | `1.2 MB` (5 `.mp4`) + 4 `.so` | **`0`** | **100% removed** |
-| **D-Pad 2D Focus Latency (1M ops)** | Heavy View tree layout | Leanback `RecyclerView` | **`6.31 ns/op`** | **Zero-layout state machine** |
-| **Allocations in `onDraw()` (60 Hz)** | View + Glide churn | Leanback + Glide | **`0` allocations (bytecode-gated)** | **Zero GC pressure** |
+| **D-Pad 2D Focus Latency (1M ops)** | Heavy View tree layout | Leanback `RecyclerView` | **`6.43 ns/op`** | **Zero-layout state machine** |
+| **Allocations in `onDraw()` & `updateStatus()`** | View + Glide churn | Leanback + Glide | **`0` allocations (bytecode-gated)** | **Zero GC pressure** |
 
 ### Local Build & Test Suite (No TV Required)
 
-To compile `RebirthLauncher-1.0.0.apk` and run the 8 JUnit 4 functional, microbenchmark, and bytecode zero-allocation gate tests locally:
+To compile `RebirthLauncher-1.0.0.apk` and run the 9 JUnit 4 functional, microbenchmark, and bytecode zero-allocation gate tests locally:
 
 ```bash
 ./launcher/build.sh

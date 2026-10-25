@@ -174,7 +174,8 @@ public class LauncherModelTest {
             "drawAppsRow",
             "drawChannelsRow",
             "drawFooter",
-            "drawDigitOverlayIfActive"
+            "drawDigitOverlayIfActive",
+            "updateStatus"
         };
         for (String m : zeroAllocViewMethods) {
             assertZeroAllocationsInMethod("RebirthHomeView." + m, viewMethods.get(m));
@@ -185,7 +186,12 @@ public class LauncherModelTest {
             "moveFocus",
             "getFocusedTile",
             "getRowTiles",
-            "mapColumnProportionally"
+            "mapColumnProportionally",
+            "appendDigit",
+            "consumeDigitBuffer",
+            "formatClockChars",
+            "formatRamChars",
+            "formatDigitOverlayChars"
         };
         for (String m : zeroAllocModelMethods) {
             assertZeroAllocationsInMethod("LauncherModel." + m, modelMethods.get(m));
@@ -195,11 +201,33 @@ public class LauncherModelTest {
         String[] zeroAllocActivityMethods = new String[] {
             "refreshHeaderTelemetry",
             "getAvailableMemoryMb",
-            "resolveChannelIdForLcn"
+            "resolveChannelIdForLcn",
+            "findCachedLaunchIntent"
         };
         for (String m : zeroAllocActivityMethods) {
             assertZeroAllocationsInMethod("MainActivity." + m, activityMethods.get(m));
         }
+    }
+
+    @Test
+    public void testZeroAllocationCharFormatters() {
+        char[] clock = new char[5];
+        LauncherModel.formatClockChars(9, 5, clock);
+        assertEquals("09:05", new String(clock));
+        LauncherModel.formatClockChars(21, 47, clock);
+        assertEquals("21:47", new String(clock));
+
+        char[] ram = new char[16];
+        int len1 = LauncherModel.formatRamChars(418L, ram);
+        assertEquals("418 MB free", new String(ram, 0, len1));
+        int len2 = LauncherModel.formatRamChars(92L, ram);
+        assertEquals("92 MB free", new String(ram, 0, len2));
+
+        char[] digits = new char[8];
+        int dlen1 = LauncherModel.formatDigitOverlayChars(7, digits);
+        assertEquals("CH 7", new String(digits, 0, dlen1));
+        int dlen2 = LauncherModel.formatDigitOverlayChars(501, digits);
+        assertEquals("CH 501", new String(digits, 0, dlen2));
     }
 
     @Test
@@ -240,6 +268,7 @@ public class LauncherModelTest {
             assertFalse(methodLabel + " contains StringBuilder allocation: " + line, line.contains("StringBuilder"));
             assertFalse(methodLabel + " contains String.valueOf allocation: " + line, line.contains("String.valueOf"));
             assertFalse(methodLabel + " contains Long.valueOf boxing: " + line, line.contains("Long.valueOf"));
+            assertFalse(methodLabel + " contains CPU SkPath rasterization: " + line, line.contains("android/graphics/Path"));
         }
     }
 

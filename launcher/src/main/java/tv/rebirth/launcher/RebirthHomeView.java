@@ -7,14 +7,13 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.KeyEvent;
 import android.view.View;
 
-public final class RebirthHomeView extends View {
+public final class RebirthHomeView extends View implements Runnable {
 
     public interface ActionListener {
         void onTileClicked(LauncherModel.Tile tile);
@@ -47,7 +46,6 @@ public final class RebirthHomeView extends View {
     private final LauncherModel model;
     private final ActionListener listener;
 
-    private final Paint bgPaint = new Paint();
     private final Paint cardPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint badgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -60,7 +58,6 @@ public final class RebirthHomeView extends View {
     private final RectF cardRect = new RectF();
     private final RectF focusRect = new RectF();
     private final RectF badgeRect = new RectF();
-    private final Path tvAntennaPath = new Path();
     private final BitmapFactory.Options bitmapOpts = new BitmapFactory.Options();
 
     private final LinearGradient[] appGradients = new LinearGradient[6];
@@ -69,21 +66,15 @@ public final class RebirthHomeView extends View {
     private Bitmap[] appBitmaps;
     private Bitmap[] channelBitmaps;
 
-    private String clockText = "20:15";
-    private String freeRamText = "418 MB free";
+    private final char[] clockChars = new char[] { '2', '0', ':', '1', '5' };
+    private final char[] ramChars = new char[16];
+    private final char[] digitChars = new char[8];
+    private int ramCharsLen;
+    private int digitCharsLen;
+    private int lastHour = -1;
+    private int lastMinute = -1;
     private long lastFreeRamMb = -1L;
     private boolean longPressHandled = false;
-
-    private final Runnable commitDigitsRunnable = new Runnable() {
-        @Override
-        public void run() {
-            int lcn = model.consumeDigitBuffer();
-            invalidate();
-            if (lcn > 0 && listener != null) {
-                listener.onDirectChannelNumber(lcn);
-            }
-        }
-    };
 
     public RebirthHomeView(Context context, LauncherModel model, ActionListener listener) {
         super(context);
@@ -92,7 +83,6 @@ public final class RebirthHomeView extends View {
         setFocusable(true);
         setFocusableInTouchMode(true);
 
-        bgPaint.setColor(0xFF070A10);
         borderPaint.setStyle(Paint.Style.STROKE);
 
         Typeface boldTf = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD);
@@ -118,9 +108,20 @@ public final class RebirthHomeView extends View {
             channelIconRects[i] = new RectF();
         }
         bitmapOpts.inScaled = false;
+        ramCharsLen = LauncherModel.formatRamChars(418L, ramChars);
 
         initGradients();
         ensureBitmapsLoaded();
+    }
+
+    @Override
+    public void run() {
+        int lcn = model.consumeDigitBuffer();
+        digitCharsLen = 0;
+        invalidate();
+        if (lcn > 0 && listener != null) {
+            listener.onDirectChannelNumber(lcn);
+        }
     }
 
     private void initGradients() {
@@ -205,19 +206,25 @@ public final class RebirthHomeView extends View {
         }
     }
 
-    public void updateStatus(String clock, long freeRamMb) {
+    public void updateStatus(int hour, int minute, long freeRamMb) {
         boolean changed = false;
-        if (clock != null && !clock.equals(this.clockText)) {
-            this.clockText = clock;
+        if (hour != this.lastHour || minute != this.lastMinute) {
+            this.lastHour = hour;
+            this.lastMinute = minute;
+            LauncherModel.formatClockChars(hour, minute, clockChars);
             changed = true;
         }
         if (freeRamMb != this.lastFreeRamMb) {
             this.lastFreeRamMb = freeRamMb;
-            this.freeRamText = freeRamMb + " MB free";
+            this.ramCharsLen = LauncherModel.formatRamChars(freeRamMb, ramChars);
             changed = true;
         }
         if (changed) {
-            invalidate();
+            if (getWidth() == 1280 && getHeight() == 720) {
+                invalidate(950, 24, 1225, 64);
+            } else {
+                invalidate();
+            }
         }
     }
 
@@ -225,12 +232,13 @@ public final class RebirthHomeView extends View {
     protected void onDraw(Canvas canvas) {
         ensureBitmapsLoaded();
 
+        canvas.drawColor(0xFF070A10);
+
         int w = getWidth();
         int h = getHeight();
-        canvas.drawRect(0f, 0f, w, h, bgPaint);
-
-        canvas.save();
-        if (w != 1280 || h != 720) {
+        boolean scaled = (w != 1280 || h != 720);
+        if (scaled) {
+            canvas.save();
             canvas.scale(w / 1280f, h / 720f);
         }
 
@@ -240,7 +248,9 @@ public final class RebirthHomeView extends View {
         drawFooter(canvas);
         drawDigitOverlayIfActive(canvas);
 
-        canvas.restore();
+        if (scaled) {
+            canvas.restore();
+        }
     }
 
     private void drawTopHeader(Canvas canvas) {
@@ -254,17 +264,21 @@ public final class RebirthHomeView extends View {
         subPaint.setColor(0xFF64748B);
         canvas.drawText("JVC 32\" (720p)", 158f, 54f, subPaint);
 
-        // Micro Top Strip (5 pills)
+        // Micro Top Strip (5 pills) - hoist invariant Paint state outside loop
         LauncherModel.Tile[] topTiles = model.getRowTiles(LauncherModel.ROW_TOP_STRIP);
         boolean topRowFocused = (model.getFocusedRow() == LauncherModel.ROW_TOP_STRIP);
+        int focusedCol = model.getFocusedCol();
+        cardPaint.setShader(null);
+        titlePaint.setTextAlign(Paint.Align.CENTER);
+        titlePaint.setTextSize(11f);
+
         float x = 536f;
         for (int i = 0; i < topTiles.length; i++) {
             LauncherModel.Tile t = topTiles[i];
             float pillW = (i == 3) ? 84f : 74f;
-            boolean focused = topRowFocused && (model.getFocusedCol() == i);
+            boolean focused = topRowFocused && (focusedCol == i);
 
             cardRect.set(x, 31f, x + pillW, 59f);
-            cardPaint.setShader(null);
             cardPaint.setColor(t.bgColorStart);
             cardPaint.setAlpha(focused ? 255 : 175);
             canvas.drawRoundRect(cardRect, 6f, 6f, cardPaint);
@@ -273,8 +287,6 @@ public final class RebirthHomeView extends View {
             borderPaint.setColor(focused ? 0xFFF8FAFC : 0xFF1E293B);
             canvas.drawRoundRect(cardRect, 6f, 6f, borderPaint);
 
-            titlePaint.setTextAlign(Paint.Align.CENTER);
-            titlePaint.setTextSize(11f);
             titlePaint.setColor(focused ? 0xFFFFFFFF : (i == 3 ? 0xFF4ADE80 : 0xFFCBD5E1));
             canvas.drawText(t.title, x + pillW * 0.5f, 49f, titlePaint);
 
@@ -296,13 +308,13 @@ public final class RebirthHomeView extends View {
         titlePaint.setTextAlign(Paint.Align.LEFT);
         titlePaint.setTextSize(12f);
         titlePaint.setColor(0xFF94A3B8);
-        canvas.drawText(freeRamText, 984f, 49f, titlePaint);
+        canvas.drawText(ramChars, 0, ramCharsLen, 984f, 49f, titlePaint);
 
         // Clock
         headerPaint.setTextAlign(Paint.Align.RIGHT);
         headerPaint.setTextSize(22f);
         headerPaint.setColor(0xFFF8FAFC);
-        canvas.drawText(clockText, 1216f, 53f, headerPaint);
+        canvas.drawText(clockChars, 0, 5, 1216f, 53f, headerPaint);
     }
 
     private void drawAppsRow(Canvas canvas) {
@@ -313,10 +325,17 @@ public final class RebirthHomeView extends View {
 
         LauncherModel.Tile[] apps = model.getRowTiles(LauncherModel.ROW_APPS);
         boolean rowFocused = (model.getFocusedRow() == LauncherModel.ROW_APPS);
+        int focusedCol = model.getFocusedCol();
+
+        subPaint.setTextAlign(Paint.Align.CENTER);
+        subPaint.setTextSize(12f);
+        titlePaint.setTextAlign(Paint.Align.CENTER);
+        titlePaint.setTextSize(20f);
+        titlePaint.setColor(0xFFFFFFFF);
 
         for (int i = 0; i < apps.length; i++) {
             LauncherModel.Tile t = apps[i];
-            boolean focused = rowFocused && (model.getFocusedCol() == i);
+            boolean focused = rowFocused && (focusedCol == i);
 
             float x = 64f + i * 195f;
             float y = 158f;
@@ -333,7 +352,6 @@ public final class RebirthHomeView extends View {
             cardRect.set(x, y, x + w, y + h);
             cardPaint.setShader(appGradients[i]);
             canvas.drawRoundRect(cardRect, 13f, 13f, cardPaint);
-            cardPaint.setShader(null);
 
             borderPaint.setStrokeWidth(1.2f);
             borderPaint.setColor(focused ? t.accentColor : 0xFF1E293B);
@@ -343,29 +361,22 @@ public final class RebirthHomeView extends View {
             if (i < 5 && appBitmaps != null && appBitmaps[i] != null) {
                 canvas.drawBitmap(appBitmaps[i], null, appIconRects[i], bitmapPaint);
             } else if (i == 5) {
-                // Vector Live TV icon
+                // Pure GPU primitive Live TV icon (zero SkPath CPU mask rasterization)
+                cardPaint.setShader(null);
                 cardRect.set(cx - 18f, y + 34f, cx + 18f, y + 56f);
                 cardPaint.setColor(0xFF0284C7);
                 canvas.drawRoundRect(cardRect, 4f, 4f, cardPaint);
                 canvas.drawRoundRect(cardRect, 4f, 4f, tvIconPaint);
-                tvAntennaPath.reset();
-                tvAntennaPath.moveTo(cx - 8f, y + 23f);
-                tvAntennaPath.lineTo(cx, y + 33f);
-                tvAntennaPath.lineTo(cx + 8f, y + 23f);
-                canvas.drawPath(tvAntennaPath, tvIconPaint);
+                canvas.drawLine(cx - 8f, y + 23f, cx, y + 33f, tvIconPaint);
+                canvas.drawLine(cx, y + 33f, cx + 8f, y + 23f, tvIconPaint);
                 canvas.drawLine(cx - 8f, y + 61f, cx + 8f, y + 61f, tvIconPaint);
-
-                titlePaint.setTextAlign(Paint.Align.CENTER);
-                titlePaint.setTextSize(20f);
-                titlePaint.setColor(0xFFFFFFFF);
                 canvas.drawText("TV", cx, y + 92f, titlePaint);
             }
 
-            subPaint.setTextAlign(Paint.Align.CENTER);
-            subPaint.setTextSize(12f);
             subPaint.setColor(focused ? 0xFFF8FAFC : (i == 5 ? 0xFF7DD3FC : 0xFF94A3B8));
             canvas.drawText(t.subtitle, cx, y + 108f, subPaint);
         }
+        cardPaint.setShader(null);
     }
 
     private void drawChannelsRow(Canvas canvas) {
@@ -376,10 +387,17 @@ public final class RebirthHomeView extends View {
 
         LauncherModel.Tile[] chs = model.getRowTiles(LauncherModel.ROW_CHANNELS);
         boolean rowFocused = (model.getFocusedRow() == LauncherModel.ROW_CHANNELS);
+        int focusedCol = model.getFocusedCol();
+
+        cardPaint.setShader(null);
+        titlePaint.setTextAlign(Paint.Align.CENTER);
+        titlePaint.setTextSize(11f);
+        subPaint.setTextAlign(Paint.Align.CENTER);
+        subPaint.setTextSize(10.5f);
 
         for (int i = 0; i < chs.length; i++) {
             LauncherModel.Tile t = chs[i];
-            boolean focused = rowFocused && (model.getFocusedCol() == i);
+            boolean focused = rowFocused && (focusedCol == i);
 
             float x = 64f + i * 129.5f;
             float y = 364f;
@@ -394,7 +412,6 @@ public final class RebirthHomeView extends View {
             }
 
             cardRect.set(x, y, x + w, y + h);
-            cardPaint.setShader(null);
             cardPaint.setColor(t.bgColorStart);
             canvas.drawRoundRect(cardRect, 12f, 12f, cardPaint);
 
@@ -408,20 +425,15 @@ public final class RebirthHomeView extends View {
             badgePaint.setColor(t.accentColor);
             canvas.drawRoundRect(badgeRect, 4f, 4f, badgePaint);
 
-            titlePaint.setTextAlign(Paint.Align.CENTER);
-            titlePaint.setTextSize(11f);
             titlePaint.setColor(t.lcn == 46 ? 0xFF09090B : 0xFFFFFFFF);
-            canvas.drawText(t.lcnBadgeText, badgeRect.centerX(), y + 23f, titlePaint);
+            canvas.drawText(t.lcnBadgeText, x + 10f + badgeW * 0.5f, y + 23f, titlePaint);
 
-            float cx = x + w * 0.5f;
             if (channelBitmaps != null && channelBitmaps[i] != null) {
                 canvas.drawBitmap(channelBitmaps[i], null, channelIconRects[i], bitmapPaint);
             }
 
-            subPaint.setTextAlign(Paint.Align.CENTER);
-            subPaint.setTextSize(10.5f);
             subPaint.setColor(focused ? 0xFFF8FAFC : 0xFF94A3B8);
-            canvas.drawText(t.subtitle, cx, y + 91f, subPaint);
+            canvas.drawText(t.subtitle, x + 58f, y + 91f, subPaint);
         }
     }
 
@@ -441,8 +453,7 @@ public final class RebirthHomeView extends View {
     }
 
     private void drawDigitOverlayIfActive(Canvas canvas) {
-        int digits = model.getDigitBuffer();
-        if (digits <= 0) return;
+        if (digitCharsLen <= 0) return;
 
         cardRect.set(520f, 40f, 760f, 110f);
         cardPaint.setColor(0xEE0F172A);
@@ -454,17 +465,18 @@ public final class RebirthHomeView extends View {
         titlePaint.setTextAlign(Paint.Align.CENTER);
         titlePaint.setTextSize(34f);
         titlePaint.setColor(0xFFFFFFFF);
-        canvas.drawText(model.getDigitOverlayText(), 640f, 86f, titlePaint);
+        canvas.drawText(digitChars, 0, digitCharsLen, 640f, 86f, titlePaint);
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
             int digit = keyCode - KeyEvent.KEYCODE_0;
-            removeCallbacks(commitDigitsRunnable);
-            model.appendDigit(digit);
+            removeCallbacks(this);
+            int val = model.appendDigit(digit);
+            digitCharsLen = LauncherModel.formatDigitOverlayChars(val, digitChars);
             invalidate();
-            postDelayed(commitDigitsRunnable, 1200L);
+            postDelayed(this, 1200L);
             return true;
         }
 
@@ -487,8 +499,8 @@ public final class RebirthHomeView extends View {
 
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
             if (model.getDigitBuffer() > 0) {
-                removeCallbacks(commitDigitsRunnable);
-                commitDigitsRunnable.run();
+                removeCallbacks(this);
+                run();
                 return true;
             }
             if (event.getRepeatCount() == 0) {

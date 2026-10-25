@@ -26,13 +26,14 @@ echo "[1/5] Compiling resources with aapt2..."
   "$BUILD_DIR/res_compiled/resources.zip"
 
 echo "[2/5] Compiling Java sources (target Java 8 bytecode for Android API 28-30)..."
-javac --release 8 \
+javac --release 8 -g:none \
   -cp "$ANDROID_JAR" \
   -d "$BUILD_DIR/classes" \
   "$BUILD_DIR/gen/tv/rebirth/launcher/R.java" \
   "$SCRIPT_DIR/src/main/java/tv/rebirth/launcher/LauncherModel.java" \
   "$SCRIPT_DIR/src/main/java/tv/rebirth/launcher/RebirthHomeView.java" \
   "$SCRIPT_DIR/src/main/java/tv/rebirth/launcher/MainActivity.java"
+rm -f "$BUILD_DIR"/classes/tv/rebirth/launcher/R.class "$BUILD_DIR"/classes/tv/rebirth/launcher/R\$*.class
 
 echo "[3/5] Running JUnit 4 local test suite..."
 javac --release 8 \
