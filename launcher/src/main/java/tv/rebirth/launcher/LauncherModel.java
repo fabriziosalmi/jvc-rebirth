@@ -43,6 +43,7 @@ public final class LauncherModel {
         public final int lcn;
         public final String lcnBadgeText;
         public final String passthroughUri;
+        public final String mtkSourceName;
         public final int bgColorStart;
         public final int bgColorEnd;
         public final int accentColor;
@@ -60,6 +61,9 @@ public final class LauncherModel {
             this.lcnBadgeText = (lcn > 0) ? String.valueOf(lcn) : "";
             this.passthroughUri = (actionType == ACTION_SWITCH_HDMI && targetPackageOrInput != null && targetPackageOrInput.length() > 0)
                 ? buildPassthroughInputUri(targetPackageOrInput)
+                : "";
+            this.mtkSourceName = (actionType == ACTION_SWITCH_HDMI && title != null)
+                ? title.replace(" ", "")
                 : "";
             this.bgColorStart = bgColorStart;
             this.bgColorEnd = bgColorEnd;

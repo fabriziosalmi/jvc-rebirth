@@ -4,20 +4,17 @@ import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.ComponentName;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.provider.Settings;
-import android.util.SparseLongArray;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
@@ -34,8 +31,6 @@ public final class MainActivity extends Activity
     private static final int MSG_DELAYED_CHANNEL_BCAST = 2;
     private static final int MSG_DELAYED_UPDOWN_BCAST = 3;
 
-    private static final String[] CHANNEL_PROJECTION = new String[] { "_id", "display_number" };
-    private static final Uri CHANNELS_CONTENT_URI = Uri.parse("content://android.media.tv/channel");
     private static final ComponentName LIVE_TV_COMPONENT = new ComponentName(
         LauncherModel.LIVE_TV_PKG,
         LauncherModel.LIVE_TV_ACTIVITY
@@ -47,14 +42,22 @@ public final class MainActivity extends Activity
     private final Handler handler = new Handler(Looper.getMainLooper(), this);
     private final TimeZone timeZone = TimeZone.getDefault();
     private final ActivityManager.MemoryInfo memoryInfo = new ActivityManager.MemoryInfo();
-    private final SparseLongArray lcnToChannelIdCache = new SparseLongArray(64);
 
-    // Zero-IPC launch Intent cache for the 5 streaming apps + Settings
+    // Pre-allocated reusable Intents for zero-allocation Live TV, DVB-T2 tuning, and HDMI switching
+    private final Intent liveTvIntent = new Intent(Intent.ACTION_MAIN)
+        .setComponent(LIVE_TV_COMPONENT)
+        .putExtra("bootcomplete", true)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    private final Intent selectChannelBcast = new Intent(LauncherModel.ACTION_MTK_SELECT_CHANNEL);
+    private final Intent channelUpDownBcast = new Intent(LauncherModel.ACTION_MTK_CHANNEL_UPDOWN);
+    private final Intent selectSourceBcast = new Intent(LauncherModel.ACTION_MTK_SELECT_SOURCE);
+
+    // Zero-IPC launch Intent cache for the 5 streaming apps + Settings + 3 HDMI URIs
     private final String[] cachedPkgKeys = new String[8];
     private final Intent[] cachedPkgIntents = new Intent[8];
     private int cachedPkgCount = 0;
+    private final Uri[] cachedHdmiUris = new Uri[3];
 
-    private boolean channelsPreloaded = false;
     private long lastTzCheckHour = -1L;
     private int cachedTzOffsetMs = 0;
     private String pendingChannelNum = "";
@@ -177,7 +180,7 @@ public final class MainActivity extends Activity
                 }
                 break;
             case LauncherModel.ACTION_TUNE_LCN:
-                tuneToChannelLcn(tile.lcn, tile.title);
+                tuneToChannel(tile.lcnBadgeText, tile.title);
                 break;
             case LauncherModel.ACTION_SWITCH_HDMI:
                 switchToHdmiTile(tile);
@@ -217,7 +220,7 @@ public final class MainActivity extends Activity
 
     @Override
     public void onDirectChannelNumber(int lcn) {
-        tuneToChannelLcn(lcn, "");
+        tuneToChannel(String.valueOf(lcn), "");
     }
 
     @Override
@@ -233,11 +236,7 @@ public final class MainActivity extends Activity
 
     private void launchLiveTv() {
         try {
-            Intent intent = new Intent(Intent.ACTION_MAIN);
-            intent.setComponent(LIVE_TV_COMPONENT);
-            intent.putExtra("bootcomplete", true);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
+            startActivity(liveTvIntent);
         } catch (Throwable t) {
             launchPackage(LauncherModel.LIVE_TV_PKG);
         }
@@ -294,29 +293,10 @@ public final class MainActivity extends Activity
         }
     }
 
-    private void tuneToChannelLcn(int lcn, String channelTitle) {
-        pendingChannelNum = String.valueOf(lcn);
+    private void tuneToChannel(String channelNumStr, String channelTitle) {
+        pendingChannelNum = (channelNumStr != null) ? channelNumStr : "";
         pendingChannelName = (channelTitle != null) ? channelTitle : "";
-        boolean launchedWithUri = false;
-        try {
-            long channelId = resolveChannelIdForLcn(lcn);
-            if (channelId > 0L) {
-                Uri channelUri = Uri.parse(LauncherModel.buildChannelUri(channelId));
-                Intent intent = new Intent(Intent.ACTION_VIEW, channelUri);
-                intent.setComponent(LIVE_TV_COMPONENT);
-                intent.putExtra("bootcomplete", true);
-                intent.setData(channelUri);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                launchedWithUri = true;
-            }
-        } catch (Throwable ignored) {
-        }
-
-        if (!launchedWithUri) {
-            launchLiveTv();
-        }
-
+        launchLiveTv();
         sendMtkSelectChannelBroadcast(pendingChannelNum, pendingChannelName);
         handler.removeMessages(MSG_DELAYED_CHANNEL_BCAST);
         handler.sendEmptyMessageDelayed(MSG_DELAYED_CHANNEL_BCAST, 350L);
@@ -324,76 +304,31 @@ public final class MainActivity extends Activity
 
     private void sendMtkSelectChannelBroadcast(String channelNum, String channelName) {
         try {
-            Intent bcast = new Intent(LauncherModel.ACTION_MTK_SELECT_CHANNEL);
-            bcast.putExtra("channelNum", channelNum);
-            bcast.putExtra("channelName", channelName);
-            sendBroadcast(bcast);
+            selectChannelBcast.putExtra("channelNum", channelNum);
+            selectChannelBcast.putExtra("channelName", channelName);
+            sendBroadcast(selectChannelBcast);
         } catch (Throwable ignored) {
         }
     }
 
     private void sendMtkChannelUpDownBroadcast(boolean up) {
         try {
-            Intent bcast = new Intent(LauncherModel.ACTION_MTK_CHANNEL_UPDOWN);
-            bcast.putExtra("upOrdown", up);
-            sendBroadcast(bcast);
+            channelUpDownBcast.putExtra("upOrdown", up);
+            sendBroadcast(channelUpDownBcast);
         } catch (Throwable ignored) {
-        }
-    }
-
-    private long resolveChannelIdForLcn(int lcn) {
-        long cached = lcnToChannelIdCache.get(lcn, -1L);
-        if (cached > 0L) {
-            return cached;
-        }
-        if (!channelsPreloaded) {
-            preloadAllChannelIds();
-            cached = lcnToChannelIdCache.get(lcn, -1L);
-            if (cached > 0L) {
-                return cached;
-            }
-        }
-        return -1L;
-    }
-
-    private void preloadAllChannelIds() {
-        channelsPreloaded = true;
-        Cursor cursor = null;
-        try {
-            ContentResolver cr = getContentResolver();
-            cursor = cr.query(
-                CHANNELS_CONTENT_URI,
-                CHANNEL_PROJECTION,
-                null,
-                null,
-                "_id ASC"
-            );
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    long id = cursor.getLong(0);
-                    String disp = cursor.getString(1);
-                    if (disp != null && disp.length() > 0) {
-                        try {
-                            int num = Integer.parseInt(disp.trim());
-                            if (num > 0 && lcnToChannelIdCache.get(num, -1L) < 0L) {
-                                lcnToChannelIdCache.put(num, id);
-                            }
-                        } catch (NumberFormatException ignored) {
-                        }
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
         }
     }
 
     private void switchToHdmiTile(LauncherModel.Tile tile) {
         try {
-            Uri uri = Uri.parse(tile.passthroughUri);
+            int col = tile.col;
+            Uri uri = (col >= 0 && col < cachedHdmiUris.length) ? cachedHdmiUris[col] : null;
+            if (uri == null) {
+                uri = Uri.parse(tile.passthroughUri);
+                if (col >= 0 && col < cachedHdmiUris.length) {
+                    cachedHdmiUris[col] = uri;
+                }
+            }
             Intent intent = new Intent(Intent.ACTION_VIEW, uri);
             intent.setComponent(LIVE_TV_COMPONENT);
             intent.putExtra("deviceName", tile.title);
@@ -403,9 +338,8 @@ public final class MainActivity extends Activity
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
 
-            Intent srcBcast = new Intent(LauncherModel.ACTION_MTK_SELECT_SOURCE);
-            srcBcast.putExtra(LauncherModel.EXTRA_MTK_SOURCE_NAME, tile.title.replace(" ", ""));
-            sendBroadcast(srcBcast);
+            selectSourceBcast.putExtra(LauncherModel.EXTRA_MTK_SOURCE_NAME, tile.mtkSourceName);
+            sendBroadcast(selectSourceBcast);
         } catch (Throwable t) {
             launchLiveTv();
         }

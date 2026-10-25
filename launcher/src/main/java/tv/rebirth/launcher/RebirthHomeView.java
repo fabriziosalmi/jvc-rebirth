@@ -365,13 +365,10 @@ public final class RebirthHomeView extends View implements Runnable {
             canvas.drawRoundRect(cardRect, 15f, 15f, cardPaint);
             cardPaint.setShader(null);
 
-            // Deep obsidian inner stage behind logo for maximum contrast on white/color marks
+            // Deep obsidian inner stage behind logo (single fill call, zero redundant stroke call)
             badgeRect.set(x + 14f, y + 18f, x + w - 14f, y + 118f);
             badgePaint.setColor(0x6603060C);
             canvas.drawRoundRect(badgeRect, 10f, 10f, badgePaint);
-            borderPaint.setStrokeWidth(1f);
-            borderPaint.setColor(focused ? 0x28FFFFFF : 0x14FFFFFF);
-            canvas.drawRoundRect(badgeRect, 10f, 10f, borderPaint);
 
             borderPaint.setStrokeWidth(focused ? 3.5f : 1.3f);
             borderPaint.setColor(focused ? 0xFFFFFFFF : 0xFF1E293B);
@@ -454,13 +451,10 @@ public final class RebirthHomeView extends View implements Runnable {
             cardPaint.setColor(t.bgColorStart);
             canvas.drawRoundRect(cardRect, 14f, 14f, cardPaint);
 
-            // Deep obsidian inner logo stage (y + 50 .. y + 138)
+            // Deep obsidian inner logo stage (single fill call, zero redundant stroke call)
             badgeRect.set(x + 9f, y + 50f, x + w - 9f, y + 138f);
             badgePaint.setColor(0x6603060C);
             canvas.drawRoundRect(badgeRect, 9f, 9f, badgePaint);
-            borderPaint.setStrokeWidth(1f);
-            borderPaint.setColor(focused ? 0x28FFFFFF : 0x14FFFFFF);
-            canvas.drawRoundRect(badgeRect, 9f, 9f, borderPaint);
 
             borderPaint.setStrokeWidth(focused ? 3.2f : 1.3f);
             borderPaint.setColor(focused ? 0xFFFFFFFF : 0xFF1E293B);

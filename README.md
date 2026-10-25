@@ -14,7 +14,7 @@ chmod +x scripts/debloat.sh scripts/restore-stock.sh
 ./scripts/debloat.sh 192.168.1.100:5555
 
 # Option B (Optional --rebirth mode):
-# Installs our custom 65.57 KB Rebirth Launcher (Italian DVB-T2 LCN + streaming preset)
+# Installs our custom 61.57 KB Rebirth Launcher (Italian DVB-T2 LCN + streaming preset)
 ./scripts/debloat.sh 192.168.1.100:5555 --rebirth
 ```
 Replace `192.168.1.100` with your TV's LAN IP address (requires **Settings -> Device Preferences -> Developer options -> USB debugging** enabled on the TV). By default, [`scripts/debloat.sh`](scripts/debloat.sh) installs **Projectivy Launcher** (`com.spocky.projengmenu`) so any user worldwide gets a configurable launcher out of the box; passing `--rebirth` instead installs **Rebirth Launcher** (`tv.rebirth.launcher`, see [Section 6](#6-optional-rebirth-launcher-tvrebirthlauncher---rebirth-mode)).
@@ -99,12 +99,12 @@ Every optimization in this repository was validated on the target hardware acros
    ```
 
 ### Step 2: Run the Automated Optimization Script
-Run [`scripts/debloat.sh`](scripts/debloat.sh), passing your TV's IP address (add `--rebirth` if you want the custom 65.57 KB Italian DVB-T2 launcher instead of the default Projectivy Launcher):
+Run [`scripts/debloat.sh`](scripts/debloat.sh), passing your TV's IP address (add `--rebirth` if you want the custom 61.57 KB Italian DVB-T2 launcher instead of the default Projectivy Launcher):
 ```bash
 # Default (Projectivy Launcher):
 ./scripts/debloat.sh 192.168.1.100:5555
 
-# Optional (Rebirth Launcher 65.57 KB custom Italian preset):
+# Optional (Rebirth Launcher 61.57 KB custom Italian preset):
 ./scripts/debloat.sh 192.168.1.100:5555 --rebirth
 ```
 
@@ -113,7 +113,7 @@ Run [`scripts/debloat.sh`](scripts/debloat.sh), passing your TV's IP address (ad
 What [`scripts/debloat.sh`](scripts/debloat.sh) performs automatically in 6 stages:
 1. **Launcher & App Sideloading (No Google Account Needed)**:
    - **Default mode**: Installs **Projectivy Launcher** (`com.spocky.projengmenu`, general-purpose configurable TV launcher) and sets it as the default `HOME` activity.
-   - **Optional `--rebirth` mode**: Installs **Rebirth Launcher 1.0.0** (`tv.rebirth.launcher`, `65.57 KB` zero-allocation native launcher pre-configured with Italian DVB-T2 channels and streaming apps), disables `com.spocky.projengmenu` if present, and sets `tv.rebirth.launcher/.MainActivity` as the default `HOME` activity.
+   - **Optional `--rebirth` mode**: Installs **Rebirth Launcher 1.0.0** (`tv.rebirth.launcher`, `61.57 KB` zero-allocation native launcher pre-configured with Italian DVB-T2 channels and streaming apps), disables `com.spocky.projengmenu` if present, and sets `tv.rebirth.launcher/.MainActivity` as the default `HOME` activity.
    - If present in `apks/`, also sideloads **RaiPlay** (`it.rainet.androidtv`) and **DAZN** (`com.dazn`).
 2. **Boot-Safe System Debloat (29 Packages Disabled/Removed)**:
    - Disables 26 memory-hogging packages for `user 0`, including the stock Google TV Launcher (`tvlauncher`, `tvrecommendations`, `partnercustomizer`), Google Assistant (`katniss`), Google Play Store (`com.android.vending`), Wi-Fi Remote (`com.google.android.tv.remote.service`), `settings.intelligence`, `vestel.tv.eib`, `disclaimercustomization`, `vestelreporter`, `cltv.fast`, `freeviewplay`, and Calendar/Contacts sync adapters.
@@ -193,7 +193,7 @@ While **Projectivy Launcher** (`com.spocky.projengmenu`) is kept as the **defaul
 
 > **When to use Default (`Projectivy`) vs. `--rebirth` (`Rebirth Launcher`)**:
 > - **Default (`./scripts/debloat.sh <TV_IP>`)**: Best for general users who want to customize rows, wallpapers, and installed apps directly from the TV UI.
-> - **`--rebirth` (`./scripts/debloat.sh <TV_IP> --rebirth`)**: Built for maximum RAM/CPU efficiency (`65.57 KB` APK vs `11.40 MB`, `5` DEX classes vs `7,592`) with a fixed, zero-allocation `1280x720` layout pre-configured for Italian streaming apps (`YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay`) and Italian DVB-T2 LCN channels (`1 Rai 1`, `3 Rai 3`, `7 LA7`, `35 Focus`, `54 Rai Storia`, `57 Rai Scuola`, `43 Rai Yoyo`, `40 Boing`, `46 Cartoonito`). Users in other countries can edit [`LauncherModel.java`](launcher/src/main/java/tv/rebirth/launcher/LauncherModel.java) and run `./launcher/build.sh` to bake their own channels and apps.
+> - **`--rebirth` (`./scripts/debloat.sh <TV_IP> --rebirth`)**: Built for maximum RAM/CPU efficiency (`61.57 KB` APK vs `11.40 MB`, `5` DEX classes vs `7,592`) with a fixed, zero-allocation `1280x720` layout pre-configured for Italian streaming apps (`YouTube`, `Prime Video`, `DAZN`, `Disney+`, `RaiPlay`) and Italian DVB-T2 LCN channels (`1 Rai 1`, `3 Rai 3`, `7 LA7`, `35 Focus`, `54 Rai Storia`, `57 Rai Scuola`, `43 Rai Yoyo`, `40 Boing`, `46 Cartoonito`). Users in other countries can edit [`LauncherModel.java`](launcher/src/main/java/tv/rebirth/launcher/LauncherModel.java) and run `./launcher/build.sh` to bake their own channels and apps.
 
 ![Rebirth Launcher 1280x720 Native UI](assets/rebirth-launcher-preview.svg)
 
@@ -215,14 +215,14 @@ While **Projectivy Launcher** (`com.spocky.projengmenu`) is kept as the **defaul
    - **Top Strip (`88x34 px` pills)**: 1-click Vestel hardware HDMI input switching (`HW4` / `HDMI 1`, `HW5` / `HDMI 2`, `HW6` / `HDMI 3` targeting `TurnkeyUiMainActivity` with `bootcomplete=true`, `inputName`, `deviceName`, and `com.mediatek.select.source`), `Free RAM` boost (`killBackgroundProcesses`), and Android TV `Settings` (short press opens System Settings; long press `OK` or `MENU` opens a lazy, zero-idle-RAM native dialog of all installed apps).
 5. **Direct Boot & Uncompressed `mmap` Packaging**:
    - Marked `android:directBootAware="true"` and `android:defaultToDeviceProtectedStorage="true"` to bypass Android's slow `FallbackHome` (*"Android is starting..."*) screen during cold boot.
-   - `classes.dex` (`27.32 KB`, 5 classes total, 0 synthetic `access$` bridges), `resources.arsc` (`1.89 KB`), and all 14 PNGs (`26.30 KB`) are stored uncompressed (`Stored`, `0%`) and 4-byte aligned (`zipalign -p 4`) so the Linux kernel maps them directly via `mmap` from flash without RAM decompression.
+   - `classes.dex` (`26.26 KB`, 5 classes total, 0 synthetic `access$` bridges), `resources.arsc` (`1.89 KB`), and all 14 PNGs (`26.30 KB`) are stored uncompressed (`Stored`, `0%`) and 4-byte aligned (`zipalign -p 4`) so the Linux kernel maps them directly via `mmap` from flash without RAM decompression.
 
 ### Measured Comparison: Stock vs. Projectivy 4.72 vs. Rebirth Launcher 1.0.0
 
 | Metric | Stock Google TV Launcher | Projectivy Launcher 4.72 | Rebirth Launcher 1.0.0 | Improvement vs. Projectivy |
 | :--- | ---: | ---: | ---: | :--- |
-| **Signed APK Size** | System Preload (`>45 MB`) | `11,953,766 B` (`11.40 MB`) | **`67,143 B` (`65.57 KB`)** | **178x smaller APK** |
-| **DEX Bytecode (`classes.dex`)** | Multi-DEX + GmsCore | `7,706 KB` (3 DEX files) | **`27.32 KB` (1 DEX, `Stored`)** | **282x less bytecode** |
+| **Signed APK Size** | System Preload (`>45 MB`) | `11,953,766 B` (`11.40 MB`) | **`63,047 B` (`61.57 KB`)** | **189x smaller APK** |
+| **DEX Bytecode (`classes.dex`)** | Multi-DEX + GmsCore | `7,706 KB` (3 DEX files) | **`26.26 KB` (1 DEX, `Stored`)** | **293x less bytecode** |
 | **DEX Classes / Methods** | Thousands | `7,592` classes / `59,219` methods | **`5` classes / `196` methods** | **1,518x fewer classes** |
 | **Manifest Components** | Services + Providers | `59` Act / `13` Svc / `16` Rcv / `4` Prv | **`1` Act / `0` Svc / `0` Rcv / `0` Prv** | **Zero background components** |
 | **Resource Table (`resources.arsc`)** | Multi-MB | `2,150 KB` | **`1.89 KB` (`Stored`)** | **1,137x smaller resources** |

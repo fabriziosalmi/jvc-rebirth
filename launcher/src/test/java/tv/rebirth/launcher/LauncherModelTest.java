@@ -205,7 +205,10 @@ public class LauncherModelTest {
         String[] zeroAllocActivityMethods = new String[] {
             "refreshHeaderTelemetry",
             "getAvailableMemoryMb",
-            "resolveChannelIdForLcn",
+            "launchLiveTv",
+            "tuneToChannel",
+            "sendMtkSelectChannelBroadcast",
+            "sendMtkChannelUpDownBroadcast",
             "findCachedLaunchIntent"
         };
         for (String m : zeroAllocActivityMethods) {

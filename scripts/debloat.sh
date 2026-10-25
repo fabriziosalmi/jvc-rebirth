@@ -4,7 +4,7 @@ set -euo pipefail
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <TV_IP[:PORT]> [--rebirth]"
   echo "  Default   : Installs general-purpose Projectivy Launcher (com.spocky.projengmenu)"
-  echo "  --rebirth : Installs ultra-lightweight Rebirth Launcher (tv.rebirth.launcher, 65.6 KB, Italian DVB-T2 preset)"
+  echo "  --rebirth : Installs ultra-lightweight Rebirth Launcher (tv.rebirth.launcher, 61.6 KB, Italian DVB-T2 preset)"
   exit 1
 fi
 TV_ADDR="$1"
