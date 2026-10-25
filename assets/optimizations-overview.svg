@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420" width="100%" height="100%" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <rect width="880" height="420" rx="12" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+
+  <!-- Header -->
+  <text x="32" y="38" fill="#f0f6fc" font-size="18" font-weight="700">6-Stage Engineering Pipeline &amp; Default System Overrides</text>
+  <text x="32" y="58" fill="#8b949e" font-size="12">Complete breakdown of AOT compilation, kernel/VM parameters, hardware scaler overrides, and service lockdowns</text>
+
+  <!-- Row 1 Cards (y=76, height=150) -->
+  <!-- Card 1: AOT Native Compilation -->
+  <rect x="28" y="76" width="264" height="150" rx="8" fill="#161b22" stroke="#2ea043" stroke-width="1.2"/>
+  <text x="44" y="102" fill="#56d364" font-size="13" font-weight="700">1. 100% Native AOT (-m speed)</text>
+  <text x="44" y="122" fill="#c9d1d9" font-size="11.5">Replaced stock "quicken" JIT with</text>
+  <text x="44" y="138" fill="#c9d1d9" font-size="11.5">ahead-of-time ARMv7 machine code:</text>
+  <text x="44" y="158" fill="#8b949e" font-size="11">- Live TV Stack, TvSettings &amp; SystemUI</text>
+  <text x="44" y="174" fill="#8b949e" font-size="11">- System WebView &amp; Vestel Services</text>
+  <text x="44" y="190" fill="#8b949e" font-size="11">- Projectivy, YouTube, RaiPlay, DAZN, D+</text>
+  <text x="44" y="210" fill="#56d364" font-size="11" font-weight="600">Result: 16 apps 100% ARMv7 AOT compiled</text>
+
+  <!-- Card 2: ActivityManager & Kernel VM -->
+  <rect x="308" y="76" width="264" height="150" rx="8" fill="#161b22" stroke="#58a6ff" stroke-width="1.2"/>
+  <text x="324" y="102" fill="#58a6ff" font-size="13" font-weight="700">2. VM, WebView &amp; Cache Defaults</text>
+  <text x="324" y="122" fill="#c9d1d9" font-size="11.5">Reconfigured Android 11 low-RAM</text>
+  <text x="324" y="138" fill="#c9d1d9" font-size="11.5">process &amp; memory management:</text>
+  <text x="324" y="158" fill="#8b949e" font-size="11">- max_cached_processes: 32 -&gt; 4</text>
+  <text x="324" y="174" fill="#8b949e" font-size="11">- ActivityManager use_compaction = true</text>
+  <text x="324" y="190" fill="#8b949e" font-size="11">- WebView multiprocess: Disabled</text>
+  <text x="324" y="210" fill="#58a6ff" font-size="11" font-weight="600">Result: Swap cut from 384 MB to 73 MB</text>
+
+  <!-- Card 3: 50Hz Backlight & Video Scaler -->
+  <rect x="588" y="76" width="264" height="150" rx="8" fill="#161b22" stroke="#d29922" stroke-width="1.2"/>
+  <text x="604" y="102" fill="#e3b341" font-size="13" font-weight="700">3. Backlight 50Hz &amp; Video Scaler</text>
+  <text x="604" y="122" fill="#c9d1d9" font-size="11.5">DEX-reversed hidden OEM settings</text>
+  <text x="604" y="138" fill="#c9d1d9" font-size="11.5">&amp; hardware frame-buffer filters:</text>
+  <text x="604" y="158" fill="#8b949e" font-size="11">- key_picture_mode_* = 0 (NI -10 -&gt; NI 19)</text>
+  <text x="604" y="174" fill="#8b949e" font-size="11">- DNR, MPEG NR &amp; MJC interpolation = 0</text>
+  <text x="604" y="190" fill="#8b949e" font-size="11">- GPU render_dirty_regions = true</text>
+  <text x="604" y="210" fill="#e3b341" font-size="11" font-weight="600">Result: -57.6% CPU &amp; faster deinterlacing</text>
+
+  <!-- Row 2 Cards (y=244, height=150) -->
+  <!-- Card 4: Input & UI Latency Overrides -->
+  <rect x="28" y="244" width="264" height="150" rx="8" fill="#161b22" stroke="#a371f7" stroke-width="1.2"/>
+  <text x="44" y="270" fill="#bc8cff" font-size="13" font-weight="700">4. Input &amp; UI Latency Defaults</text>
+  <text x="44" y="290" fill="#c9d1d9" font-size="11.5">Removed remote keypress hooks and</text>
+  <text x="44" y="306" fill="#c9d1d9" font-size="11.5">frame-dropping UI transitions:</text>
+  <text x="44" y="326" fill="#8b949e" font-size="11">- Accessibility &amp; Notification hooks = Off</text>
+  <text x="44" y="342" fill="#8b949e" font-size="11">- Window / Transition / Animator = 0.0x</text>
+  <text x="44" y="358" fill="#8b949e" font-size="11">- long_press_timeout: 500 ms -&gt; 300 ms</text>
+  <text x="44" y="378" fill="#bc8cff" font-size="11" font-weight="600">Result: Instant D-Pad &amp; OSD response</text>
+
+  <!-- Card 5: Debloat & AppOps Lockdown -->
+  <rect x="308" y="244" width="264" height="150" rx="8" fill="#161b22" stroke="#f85149" stroke-width="1.2"/>
+  <text x="324" y="270" fill="#ff7b72" font-size="13" font-weight="700">5. Debloat &amp; AppOps Lockdown</text>
+  <text x="324" y="290" fill="#c9d1d9" font-size="11.5">Replaced Google TV Launcher &amp;</text>
+  <text x="324" y="306" fill="#c9d1d9" font-size="11.5">blocked background resurrection:</text>
+  <text x="324" y="326" fill="#8b949e" font-size="11">- 29 bloat packages disabled + Play Store</text>
+  <text x="324" y="342" fill="#8b949e" font-size="11">- RUN_ANY_IN_BACKGROUND = ignore</text>
+  <text x="324" y="358" fill="#8b949e" font-size="11">- WAKE_LOCK = ignore, bucket = rare</text>
+  <text x="324" y="378" fill="#ff7b72" font-size="11" font-weight="600">Result: +182 MB free RAM in Live TV</text>
+
+  <!-- Card 6: DVB-T2 Tuner, Logd & eMMC -->
+  <rect x="588" y="244" width="264" height="150" rx="8" fill="#161b22" stroke="#3fb950" stroke-width="1.2"/>
+  <text x="604" y="270" fill="#56d364" font-size="13" font-weight="700">6. Tuner, JNI Logd &amp; eMMC Trim</text>
+  <text x="604" y="290" fill="#c9d1d9" font-size="11.5">Silenced MediaTek JNI log spam &amp;</text>
+  <text x="604" y="306" fill="#c9d1d9" font-size="11.5">streamlined DVB-T2 channel table:</text>
+  <text x="604" y="326" fill="#8b949e" font-size="11">- HbbTV = Off, Auto Channel Update = Off</text>
+  <text x="604" y="342" fill="#8b949e" font-size="11">- Channels 1-99 active (100+ skipped)</text>
+  <text x="604" y="358" fill="#8b949e" font-size="11">- persist.log.tag.* = S, logd = 64K, fstrim</text>
+  <text x="604" y="378" fill="#56d364" font-size="11" font-weight="600">Result: 0% I/O wait &amp; fast channel zapping</text>
+</svg>

@@ -1,0 +1,5 @@
+apks/*.apk
+apks/*.xapk
+apks/raiplay/
+apks/dazn/
+.DS_Store
