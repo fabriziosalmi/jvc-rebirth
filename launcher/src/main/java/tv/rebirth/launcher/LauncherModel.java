@@ -67,6 +67,12 @@ public final class LauncherModel {
         }
     }
 
+    // Pre-computed zero-allocation spatial column maps (aligns physical X centers across rows)
+    private static final int[] APPS_TO_CHANNELS_COL = { 0, 2, 3, 5, 7, 8 };
+    private static final int[] CHANNELS_TO_APPS_COL = { 0, 1, 1, 2, 3, 3, 4, 4, 5 };
+    private static final int[] APPS_TO_TOP_COL      = { 0, 1, 2, 2, 3, 4 };
+    private static final int[] TOP_TO_APPS_COL      = { 1, 2, 3, 4, 5 };
+
     private final Tile[] topStripTiles;
     private final Tile[] appTiles;
     private final Tile[] channelTiles;
@@ -149,39 +155,30 @@ public final class LauncherModel {
         int oldRow = focusedRow;
         int oldCol = focusedCol;
         Tile[] currentRowTiles = getRowTiles(focusedRow);
+        int maxCol = currentRowTiles.length - 1;
 
         if (direction == DIR_LEFT) {
-            if (focusedCol > 0) {
-                focusedCol--;
-            }
+            focusedCol = (focusedCol > 0) ? (focusedCol - 1) : maxCol;
         } else if (direction == DIR_RIGHT) {
-            if (focusedCol < currentRowTiles.length - 1) {
-                focusedCol++;
-            }
+            focusedCol = (focusedCol < maxCol) ? (focusedCol + 1) : 0;
         } else if (direction == DIR_UP) {
-            if (focusedRow > ROW_TOP_STRIP) {
-                int targetRow = focusedRow - 1;
-                focusedCol = mapColumnProportionally(focusedCol, currentRowTiles.length, getRowTiles(targetRow).length);
-                focusedRow = targetRow;
+            if (focusedRow == ROW_CHANNELS) {
+                focusedCol = CHANNELS_TO_APPS_COL[focusedCol];
+                focusedRow = ROW_APPS;
+            } else if (focusedRow == ROW_APPS) {
+                focusedCol = APPS_TO_TOP_COL[focusedCol];
+                focusedRow = ROW_TOP_STRIP;
             }
         } else if (direction == DIR_DOWN) {
-            if (focusedRow < ROW_CHANNELS) {
-                int targetRow = focusedRow + 1;
-                focusedCol = mapColumnProportionally(focusedCol, currentRowTiles.length, getRowTiles(targetRow).length);
-                focusedRow = targetRow;
+            if (focusedRow == ROW_TOP_STRIP) {
+                focusedCol = TOP_TO_APPS_COL[focusedCol];
+                focusedRow = ROW_APPS;
+            } else if (focusedRow == ROW_APPS) {
+                focusedCol = APPS_TO_CHANNELS_COL[focusedCol];
+                focusedRow = ROW_CHANNELS;
             }
         }
         return (oldRow != focusedRow) || (oldCol != focusedCol);
-    }
-
-    public static int mapColumnProportionally(int srcCol, int srcCount, int dstCount) {
-        if (srcCount <= 1 || dstCount <= 1) return 0;
-        if (srcCol <= 0) return 0;
-        if (srcCol >= srcCount - 1) return dstCount - 1;
-        int mapped = Math.round(((float) srcCol / (float) (srcCount - 1)) * (dstCount - 1));
-        if (mapped < 0) return 0;
-        if (mapped >= dstCount) return dstCount - 1;
-        return mapped;
     }
 
     public int appendDigit(int digit) {

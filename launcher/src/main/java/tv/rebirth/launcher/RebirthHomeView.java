@@ -128,9 +128,9 @@ public final class RebirthHomeView extends View implements Runnable {
         LauncherModel.Tile[] apps = model.getRowTiles(LauncherModel.ROW_APPS);
         for (int i = 0; i < apps.length; i++) {
             float x = 64f + i * 195f;
-            float y = 158f;
+            float y = 124f;
             appGradients[i] = new LinearGradient(
-                x, y, x + 178f, y + 126f,
+                x, y, x + 178f, y + 178f,
                 apps[i].bgColorStart, apps[i].bgColorEnd, Shader.TileMode.CLAMP
             );
         }
@@ -162,7 +162,7 @@ public final class RebirthHomeView extends View implements Runnable {
                     float bw = bmp.getWidth();
                     float bh = bmp.getHeight();
                     float bx = cx - bw * 0.5f;
-                    float by = 206f - bh * 0.5f;
+                    float by = 192f - bh * 0.5f;
                     appIconRects[i].set(bx, by, bx + bw, by + bh);
                 }
             }
@@ -179,7 +179,7 @@ public final class RebirthHomeView extends View implements Runnable {
                 float bw = bmp.getWidth();
                 float bh = bmp.getHeight();
                 float bx = cx - bw * 0.5f;
-                float by = 418f - bh * 0.5f;
+                float by = 462f - bh * 0.5f;
                 channelIconRects[i].set(bx, by, bx + bw, by + bh);
             }
         }
@@ -221,7 +221,7 @@ public final class RebirthHomeView extends View implements Runnable {
         }
         if (changed) {
             if (getWidth() == 1280 && getHeight() == 720) {
-                invalidate(950, 24, 1225, 64);
+                invalidate(920, 22, 1225, 66);
             } else {
                 invalidate();
             }
@@ -254,131 +254,174 @@ public final class RebirthHomeView extends View implements Runnable {
     }
 
     private void drawTopHeader(Canvas canvas) {
-        headerPaint.setTextAlign(Paint.Align.LEFT);
-        headerPaint.setTextSize(18f);
-        headerPaint.setColor(0xFFF8FAFC);
-        canvas.drawText("REBIRTH", 64f, 54f, headerPaint);
+        badgeRect.set(64f, 32f, 68f, 54f);
+        badgePaint.setColor(0xFF38BDF8);
+        canvas.drawRoundRect(badgeRect, 2f, 2f, badgePaint);
 
-        // Micro Top Strip (5 pills) - hoist invariant Paint state outside loop
+        headerPaint.setTextAlign(Paint.Align.LEFT);
+        headerPaint.setTextSize(20f);
+        headerPaint.setColor(0xFFF8FAFC);
+        canvas.drawText("REBIRTH", 78f, 51f, headerPaint);
+
+        // Top Strip (5 pills, enlarged to 88x34 px, 13px bold for 10-foot legibility)
         LauncherModel.Tile[] topTiles = model.getRowTiles(LauncherModel.ROW_TOP_STRIP);
         boolean topRowFocused = (model.getFocusedRow() == LauncherModel.ROW_TOP_STRIP);
         int focusedCol = model.getFocusedCol();
         cardPaint.setShader(null);
         titlePaint.setTextAlign(Paint.Align.CENTER);
-        titlePaint.setTextSize(11f);
+        titlePaint.setTextSize(13f);
 
-        float x = 536f;
+        float x = 368f;
         for (int i = 0; i < topTiles.length; i++) {
             LauncherModel.Tile t = topTiles[i];
-            float pillW = (i == 3) ? 84f : 74f;
+            float pillW = (i == 3) ? 98f : 88f;
             boolean focused = topRowFocused && (focusedCol == i);
 
-            cardRect.set(x, 31f, x + pillW, 59f);
-            cardPaint.setColor(t.bgColorStart);
-            cardPaint.setAlpha(focused ? 255 : 175);
-            canvas.drawRoundRect(cardRect, 6f, 6f, cardPaint);
+            if (focused) {
+                focusRect.set(x - 3f, 24f, x + pillW + 3f, 64f);
+                borderPaint.setStrokeWidth(4.5f);
+                borderPaint.setColor(0x4438BDF8);
+                canvas.drawRoundRect(focusRect, 10f, 10f, borderPaint);
+            }
 
-            borderPaint.setStrokeWidth(focused ? 2.5f : 1f);
-            borderPaint.setColor(focused ? 0xFFF8FAFC : 0xFF1E293B);
-            canvas.drawRoundRect(cardRect, 6f, 6f, borderPaint);
+            cardRect.set(x, 27f, x + pillW, 61f);
+            cardPaint.setColor(t.bgColorStart);
+            cardPaint.setAlpha(focused ? 255 : 210);
+            canvas.drawRoundRect(cardRect, 8f, 8f, cardPaint);
+
+            borderPaint.setStrokeWidth(focused ? 2.5f : 1.2f);
+            borderPaint.setColor(focused ? 0xFFFFFFFF : 0xFF1E293B);
+            canvas.drawRoundRect(cardRect, 8f, 8f, borderPaint);
 
             titlePaint.setColor(focused ? 0xFFFFFFFF : (i == 3 ? 0xFF4ADE80 : 0xFFCBD5E1));
             canvas.drawText(t.title, x + pillW * 0.5f, 49f, titlePaint);
 
-            x += pillW + 6f;
+            x += pillW + 8f;
         }
         cardPaint.setAlpha(255);
 
-        // RAM Pill
-        cardRect.set(954f, 30f, 1112f, 60f);
+        // RAM Pill (34px tall, 13.5px bold text)
+        cardRect.set(928f, 27f, 1106f, 61f);
         cardPaint.setColor(0xFF0F172A);
-        canvas.drawRoundRect(cardRect, 15f, 15f, cardPaint);
-        borderPaint.setStrokeWidth(1f);
+        canvas.drawRoundRect(cardRect, 17f, 17f, cardPaint);
+        borderPaint.setStrokeWidth(1.2f);
         borderPaint.setColor(0xFF1E293B);
-        canvas.drawRoundRect(cardRect, 15f, 15f, borderPaint);
+        canvas.drawRoundRect(cardRect, 17f, 17f, borderPaint);
 
         badgePaint.setColor(0xFF22C55E);
-        canvas.drawCircle(972f, 45f, 4f, badgePaint);
+        canvas.drawCircle(948f, 44f, 4.5f, badgePaint);
 
         titlePaint.setTextAlign(Paint.Align.LEFT);
-        titlePaint.setTextSize(12f);
-        titlePaint.setColor(0xFF94A3B8);
-        canvas.drawText(ramChars, 0, ramCharsLen, 984f, 49f, titlePaint);
+        titlePaint.setTextSize(13.5f);
+        titlePaint.setColor(0xFFCBD5E1);
+        canvas.drawText(ramChars, 0, ramCharsLen, 962f, 49f, titlePaint);
 
-        // Clock
+        // Clock (25px bold)
         headerPaint.setTextAlign(Paint.Align.RIGHT);
-        headerPaint.setTextSize(22f);
+        headerPaint.setTextSize(25f);
         headerPaint.setColor(0xFFF8FAFC);
         canvas.drawText(clockChars, 0, 5, 1216f, 53f, headerPaint);
     }
 
     private void drawAppsRow(Canvas canvas) {
+        badgeRect.set(64f, 97f, 68f, 111f);
+        badgePaint.setColor(0xFFEF4444);
+        canvas.drawRoundRect(badgeRect, 2f, 2f, badgePaint);
+
         headerPaint.setTextAlign(Paint.Align.LEFT);
-        headerPaint.setTextSize(12f);
-        headerPaint.setColor(0xFF64748B);
-        canvas.drawText("STREAMING & TV", 64f, 138f, headerPaint);
+        headerPaint.setTextSize(13f);
+        headerPaint.setColor(0xFF94A3B8);
+        canvas.drawText("STREAMING & TV", 76f, 109f, headerPaint);
 
         LauncherModel.Tile[] apps = model.getRowTiles(LauncherModel.ROW_APPS);
         boolean rowFocused = (model.getFocusedRow() == LauncherModel.ROW_APPS);
         int focusedCol = model.getFocusedCol();
 
-        subPaint.setTextAlign(Paint.Align.CENTER);
-        subPaint.setTextSize(12f);
         titlePaint.setTextAlign(Paint.Align.CENTER);
-        titlePaint.setTextSize(20f);
-        titlePaint.setColor(0xFFFFFFFF);
 
         for (int i = 0; i < apps.length; i++) {
             LauncherModel.Tile t = apps[i];
             boolean focused = rowFocused && (focusedCol == i);
 
             float x = 64f + i * 195f;
-            float y = 158f;
+            float y = 124f;
             float w = (i == 5) ? 177f : 178f;
-            float h = 126f;
+            float h = 178f;
+            float cx = x + w * 0.5f;
 
             if (focused) {
-                focusRect.set(x - 6f, y - 6f, x + w + 6f, y + h + 6f);
-                borderPaint.setStrokeWidth(3.5f);
-                borderPaint.setColor(0xFFF8FAFC);
-                canvas.drawRoundRect(focusRect, 16f, 16f, borderPaint);
+                // Expanded hero focus card + dual-layer ambient halo
+                focusRect.set(x - 6f, y - 7f, x + w + 6f, y + h + 7f);
+                borderPaint.setStrokeWidth(6.5f);
+                borderPaint.setColor((t.accentColor & 0x00FFFFFF) | 0x48000000);
+                canvas.drawRoundRect(focusRect, 19f, 19f, borderPaint);
+
+                cardRect.set(x - 3f, y - 4f, x + w + 3f, y + h + 4f);
+            } else {
+                cardRect.set(x, y, x + w, y + h);
             }
 
-            cardRect.set(x, y, x + w, y + h);
             cardPaint.setShader(appGradients[i]);
-            canvas.drawRoundRect(cardRect, 13f, 13f, cardPaint);
+            canvas.drawRoundRect(cardRect, 15f, 15f, cardPaint);
+            cardPaint.setShader(null);
 
-            borderPaint.setStrokeWidth(1.2f);
-            borderPaint.setColor(focused ? t.accentColor : 0xFF1E293B);
-            canvas.drawRoundRect(cardRect, 13f, 13f, borderPaint);
+            // Deep obsidian inner stage behind logo for maximum contrast on white/color marks
+            badgeRect.set(x + 14f, y + 18f, x + w - 14f, y + 118f);
+            badgePaint.setColor(0x6603060C);
+            canvas.drawRoundRect(badgeRect, 10f, 10f, badgePaint);
+            borderPaint.setStrokeWidth(1f);
+            borderPaint.setColor(focused ? 0x28FFFFFF : 0x14FFFFFF);
+            canvas.drawRoundRect(badgeRect, 10f, 10f, borderPaint);
 
-            float cx = x + w * 0.5f;
+            borderPaint.setStrokeWidth(focused ? 3.5f : 1.3f);
+            borderPaint.setColor(focused ? 0xFFFFFFFF : 0xFF1E293B);
+            canvas.drawRoundRect(cardRect, 15f, 15f, borderPaint);
+
             if (i < 5 && appBitmaps != null && appBitmaps[i] != null) {
                 canvas.drawBitmap(appBitmaps[i], null, appIconRects[i], bitmapPaint);
             } else if (i == 5) {
-                // Pure GPU primitive Live TV icon (zero SkPath CPU mask rasterization)
-                cardPaint.setShader(null);
-                cardRect.set(cx - 18f, y + 34f, cx + 18f, y + 56f);
-                cardPaint.setColor(0xFF0284C7);
-                canvas.drawRoundRect(cardRect, 4f, 4f, cardPaint);
-                canvas.drawRoundRect(cardRect, 4f, 4f, tvIconPaint);
-                canvas.drawLine(cx - 8f, y + 23f, cx, y + 33f, tvIconPaint);
-                canvas.drawLine(cx, y + 33f, cx + 8f, y + 23f, tvIconPaint);
-                canvas.drawLine(cx - 8f, y + 61f, cx + 8f, y + 61f, tvIconPaint);
-                canvas.drawText("TV", cx, y + 92f, titlePaint);
+                // Live TV DVB-T2 pill + crisp GPU primitive TV icon
+                badgeRect.set(cx - 34f, y + 24f, cx + 34f, y + 42f);
+                badgePaint.setColor(0xFF0284C7);
+                canvas.drawRoundRect(badgeRect, 5f, 5f, badgePaint);
+                titlePaint.setTextSize(10.5f);
+                titlePaint.setColor(0xFFFFFFFF);
+                canvas.drawText("DVB-T2", cx, y + 37f, titlePaint);
+
+                cardRect.set(cx - 22f, y + 58f, cx + 22f, y + 86f);
+                cardPaint.setColor(0xFF0369A1);
+                canvas.drawRoundRect(cardRect, 5f, 5f, cardPaint);
+                canvas.drawRoundRect(cardRect, 5f, 5f, tvIconPaint);
+                canvas.drawLine(cx - 10f, y + 46f, cx, y + 57f, tvIconPaint);
+                canvas.drawLine(cx, y + 57f, cx + 10f, y + 46f, tvIconPaint);
+                canvas.drawLine(cx - 10f, y + 92f, cx + 10f, y + 92f, tvIconPaint);
+
+                titlePaint.setTextSize(17f);
+                canvas.drawText("LIVE TV", cx, y + 112f, titlePaint);
             }
 
-            subPaint.setColor(focused ? 0xFFF8FAFC : (i == 5 ? 0xFF7DD3FC : 0xFF94A3B8));
-            canvas.drawText(t.subtitle, cx, y + 108f, subPaint);
+            // Card Title (15.5px bold when focused, 14.5px bold when unfocused)
+            titlePaint.setTextSize(focused ? 15.5f : 14.5f);
+            titlePaint.setColor(focused ? 0xFFFFFFFF : (i == 5 ? 0xFF7DD3FC : 0xFFE2E8F0));
+            canvas.drawText(t.subtitle, cx, y + 150f, titlePaint);
+
+            if (focused) {
+                badgeRect.set(cx - 32f, y + 164f, cx + 32f, y + 168f);
+                badgePaint.setColor(t.accentColor);
+                canvas.drawRoundRect(badgeRect, 2f, 2f, badgePaint);
+            }
         }
-        cardPaint.setShader(null);
     }
 
     private void drawChannelsRow(Canvas canvas) {
+        badgeRect.set(64f, 341f, 68f, 355f);
+        badgePaint.setColor(0xFF38BDF8);
+        canvas.drawRoundRect(badgeRect, 2f, 2f, badgePaint);
+
         headerPaint.setTextAlign(Paint.Align.LEFT);
-        headerPaint.setTextSize(12f);
-        headerPaint.setColor(0xFF64748B);
-        canvas.drawText("CANALI RAPIDI TV", 64f, 346f, headerPaint);
+        headerPaint.setTextSize(13f);
+        headerPaint.setColor(0xFF94A3B8);
+        canvas.drawText("CANALI RAPIDI TV", 76f, 353f, headerPaint);
 
         LauncherModel.Tile[] chs = model.getRowTiles(LauncherModel.ROW_CHANNELS);
         boolean rowFocused = (model.getFocusedRow() == LauncherModel.ROW_CHANNELS);
@@ -386,61 +429,112 @@ public final class RebirthHomeView extends View implements Runnable {
 
         cardPaint.setShader(null);
         titlePaint.setTextAlign(Paint.Align.CENTER);
-        titlePaint.setTextSize(11f);
-        subPaint.setTextAlign(Paint.Align.CENTER);
-        subPaint.setTextSize(10.5f);
 
         for (int i = 0; i < chs.length; i++) {
             LauncherModel.Tile t = chs[i];
             boolean focused = rowFocused && (focusedCol == i);
 
             float x = 64f + i * 129.5f;
-            float y = 364f;
+            float y = 368f;
             float w = 116f;
-            float h = 104f;
+            float h = 204f;
+            float cx = x + 58f;
 
             if (focused) {
-                focusRect.set(x - 5f, y - 5f, x + w + 5f, y + h + 5f);
-                borderPaint.setStrokeWidth(3.2f);
-                borderPaint.setColor(0xFFF8FAFC);
-                canvas.drawRoundRect(focusRect, 15f, 15f, borderPaint);
+                focusRect.set(x - 5f, y - 6f, x + w + 5f, y + h + 6f);
+                borderPaint.setStrokeWidth(5.5f);
+                borderPaint.setColor((t.accentColor & 0x00FFFFFF) | 0x50000000);
+                canvas.drawRoundRect(focusRect, 17f, 17f, borderPaint);
+
+                cardRect.set(x - 2.5f, y - 3.5f, x + w + 2.5f, y + h + 3.5f);
+            } else {
+                cardRect.set(x, y, x + w, y + h);
             }
 
-            cardRect.set(x, y, x + w, y + h);
             cardPaint.setColor(t.bgColorStart);
-            canvas.drawRoundRect(cardRect, 12f, 12f, cardPaint);
+            canvas.drawRoundRect(cardRect, 14f, 14f, cardPaint);
 
-            borderPaint.setStrokeWidth(1.3f);
-            borderPaint.setColor(focused ? t.accentColor : 0xFF1E293B);
-            canvas.drawRoundRect(cardRect, 12f, 12f, borderPaint);
+            // Deep obsidian inner logo stage (y + 50 .. y + 138)
+            badgeRect.set(x + 9f, y + 50f, x + w - 9f, y + 138f);
+            badgePaint.setColor(0x6603060C);
+            canvas.drawRoundRect(badgeRect, 9f, 9f, badgePaint);
+            borderPaint.setStrokeWidth(1f);
+            borderPaint.setColor(focused ? 0x28FFFFFF : 0x14FFFFFF);
+            canvas.drawRoundRect(badgeRect, 9f, 9f, borderPaint);
 
-            // LCN Number Badge
-            float badgeW = (t.lcn >= 10) ? 28f : 24f;
-            badgeRect.set(x + 10f, y + 10f, x + 10f + badgeW, y + 28f);
+            borderPaint.setStrokeWidth(focused ? 3.2f : 1.3f);
+            borderPaint.setColor(focused ? 0xFFFFFFFF : 0xFF1E293B);
+            canvas.drawRoundRect(cardRect, 14f, 14f, borderPaint);
+
+            // Prominent LCN Number Badge (top-left)
+            float badgeW = (t.lcn >= 10) ? 34f : 28f;
+            badgeRect.set(x + 10f, y + 12f, x + 10f + badgeW, y + 36f);
             badgePaint.setColor(t.accentColor);
-            canvas.drawRoundRect(badgeRect, 4f, 4f, badgePaint);
+            canvas.drawRoundRect(badgeRect, 6f, 6f, badgePaint);
 
+            titlePaint.setTextSize(13.5f);
             titlePaint.setColor(t.lcn == 46 ? 0xFF09090B : 0xFFFFFFFF);
-            canvas.drawText(t.lcnBadgeText, x + 10f + badgeW * 0.5f, y + 23f, titlePaint);
+            canvas.drawText(t.lcnBadgeText, x + 10f + badgeW * 0.5f, y + 29f, titlePaint);
+
+            if (focused) {
+                titlePaint.setTextSize(10.5f);
+                titlePaint.setColor(0xFF94A3B8);
+                canvas.drawText("CH", x + w - 20f, y + 28f, titlePaint);
+            }
 
             if (channelBitmaps != null && channelBitmaps[i] != null) {
                 canvas.drawBitmap(channelBitmaps[i], null, channelIconRects[i], bitmapPaint);
             }
 
-            subPaint.setColor(focused ? 0xFFF8FAFC : 0xFF94A3B8);
-            canvas.drawText(t.subtitle, x + 58f, y + 91f, subPaint);
+            // Channel Title (14px bold, up from 10.5px!)
+            titlePaint.setTextSize(focused ? 14.5f : 13.5f);
+            titlePaint.setColor(focused ? 0xFFFFFFFF : 0xFFCBD5E1);
+            canvas.drawText(t.subtitle, cx, y + 172f, titlePaint);
+
+            if (focused) {
+                badgeRect.set(cx - 24f, y + 188f, cx + 24f, y + 192f);
+                badgePaint.setColor(t.accentColor);
+                canvas.drawRoundRect(badgeRect, 2f, 2f, badgePaint);
+            }
         }
     }
 
     private void drawFooter(Canvas canvas) {
         borderPaint.setStrokeWidth(1f);
         borderPaint.setColor(0xFF1E293B);
-        canvas.drawLine(64f, 628f, 1216f, 628f, borderPaint);
+        canvas.drawLine(64f, 622f, 1216f, 622f, borderPaint);
+
+        int focusedRow = model.getFocusedRow();
+        String okDesc = (focusedRow == LauncherModel.ROW_CHANNELS) ? "Sintonizza Canale"
+                      : (focusedRow == LauncherModel.ROW_TOP_STRIP) ? "Esegui Comando"
+                      : "Apri App";
+        String holdDesc = (focusedRow == LauncherModel.ROW_TOP_STRIP) ? "Tutte le App"
+                        : "Chiudi App (Force-Stop)";
+
+        drawFooterKeycap(canvas, 64f, 44f, "OK", okDesc, 0xFF0284C7);
+        drawFooterKeycap(canvas, 326f, 52f, "0..9", "Canale Diretto", 0xFF1E293B);
+        drawFooterKeycap(canvas, 594f, 82f, "TIENI OK", holdDesc, 0xFF1E293B);
+        drawFooterKeycap(canvas, 944f, 80f, "CH+ / CH-", "Scorri Canali TV", 0xFF1E293B);
+    }
+
+    private void drawFooterKeycap(Canvas canvas, float x, float keyW, String keyText, String descText, int keyBgColor) {
+        badgeRect.set(x, 642f, x + keyW, 668f);
+        badgePaint.setColor(keyBgColor);
+        canvas.drawRoundRect(badgeRect, 6f, 6f, badgePaint);
+
+        borderPaint.setStrokeWidth(1f);
+        borderPaint.setColor(0xFF334155);
+        canvas.drawRoundRect(badgeRect, 6f, 6f, borderPaint);
+
+        titlePaint.setTextAlign(Paint.Align.CENTER);
+        titlePaint.setTextSize(11.5f);
+        titlePaint.setColor(0xFFF8FAFC);
+        canvas.drawText(keyText, x + keyW * 0.5f, 659f, titlePaint);
 
         subPaint.setTextAlign(Paint.Align.LEFT);
-        subPaint.setTextSize(13f);
-        subPaint.setColor(0xFF64748B);
-        canvas.drawText("[OK] Apri  |  [1..999] Canale diretto  |  [Tieni OK su App] Chiudi App  |  [Tieni OK su Settings] Tutte le App", 64f, 660f, subPaint);
+        subPaint.setTextSize(13.5f);
+        subPaint.setColor(0xFF94A3B8);
+        canvas.drawText(descText, x + keyW + 10f, 660f, subPaint);
     }
 
     private void drawDigitOverlayIfActive(Canvas canvas) {

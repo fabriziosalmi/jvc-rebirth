@@ -60,10 +60,8 @@ public class LauncherModelTest {
     }
 
     @Test
-    public void testHorizontalDpadNavigationAndClamping() {
+    public void testHorizontalDpadNavigationAndWrapAround() {
         LauncherModel model = new LauncherModel();
-        // At col 0, moving left should return false and stay at 0
-        assertFalse(model.moveFocus(LauncherModel.DIR_LEFT));
         assertEquals(0, model.getFocusedCol());
 
         // Move right across all 6 app tiles
@@ -73,9 +71,15 @@ public class LauncherModelTest {
         }
         assertEquals("TV", model.getFocusedTile().title);
 
-        // Moving right past the last column should clamp at 5
-        assertFalse(model.moveFocus(LauncherModel.DIR_RIGHT));
+        // Moving right past the last column (5 = TV) wraps around to 0 (YouTube)
+        assertTrue(model.moveFocus(LauncherModel.DIR_RIGHT));
+        assertEquals(0, model.getFocusedCol());
+        assertEquals("YouTube", model.getFocusedTile().title);
+
+        // Moving left from 0 (YouTube) wraps around in 1 click to 5 (TV)
+        assertTrue(model.moveFocus(LauncherModel.DIR_LEFT));
         assertEquals(5, model.getFocusedCol());
+        assertEquals("TV", model.getFocusedTile().title);
     }
 
     @Test
@@ -174,6 +178,7 @@ public class LauncherModelTest {
             "drawAppsRow",
             "drawChannelsRow",
             "drawFooter",
+            "drawFooterKeycap",
             "drawDigitOverlayIfActive",
             "updateStatus"
         };
@@ -186,7 +191,6 @@ public class LauncherModelTest {
             "moveFocus",
             "getFocusedTile",
             "getRowTiles",
-            "mapColumnProportionally",
             "appendDigit",
             "consumeDigitBuffer",
             "formatClockChars",
