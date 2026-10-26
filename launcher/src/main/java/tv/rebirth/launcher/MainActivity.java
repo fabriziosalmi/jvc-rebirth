@@ -269,13 +269,26 @@ public final class MainActivity extends Activity
                     intent = pm.getLaunchIntentForPackage(pkg);
                 }
                 if (intent == null) {
-                    Intent query = new Intent(Intent.ACTION_MAIN);
-                    query.setPackage(pkg);
-                    List<ResolveInfo> list = pm.queryIntentActivities(query, 0);
-                    if (list != null && !list.isEmpty()) {
-                        ResolveInfo ri = list.get(0);
-                        intent = new Intent(Intent.ACTION_MAIN);
-                        intent.setComponent(new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name));
+                    String[] cats = new String[] {
+                        Intent.CATEGORY_LEANBACK_LAUNCHER,
+                        Intent.CATEGORY_LAUNCHER,
+                        null
+                    };
+                    for (int i = 0; i < cats.length && intent == null; i++) {
+                        Intent query = new Intent(Intent.ACTION_MAIN);
+                        if (cats[i] != null) {
+                            query.addCategory(cats[i]);
+                        }
+                        query.setPackage(pkg);
+                        List<ResolveInfo> list = pm.queryIntentActivities(query, 0);
+                        if (list != null && !list.isEmpty()) {
+                            ResolveInfo ri = list.get(0);
+                            intent = new Intent(Intent.ACTION_MAIN);
+                            if (cats[i] != null) {
+                                intent.addCategory(cats[i]);
+                            }
+                            intent.setComponent(new ComponentName(ri.activityInfo.packageName, ri.activityInfo.name));
+                        }
                     }
                 }
                 if (intent != null) {

@@ -4,7 +4,7 @@ set -euo pipefail
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <TV_IP[:PORT]> [--rebirth]"
   echo "  Default   : Installs general-purpose Projectivy Launcher (com.spocky.projengmenu)"
-  echo "  --rebirth : Installs ultra-lightweight Rebirth Launcher (tv.rebirth.launcher, 61.6 KB, Italian DVB-T2 preset)"
+  echo "  --rebirth : Installs ultra-lightweight Rebirth Launcher (tv.rebirth.launcher, 65.6 KB, Italian DVB-T2 preset)"
   exit 1
 fi
 TV_ADDR="$1"
@@ -25,7 +25,7 @@ if [[ "$LAUNCHER_MODE" == "--rebirth" ]]; then
     echo "  -> Downloading RebirthLauncher-1.0.0.apk from GitHub release..."
     curl -fL "https://github.com/fabriziosalmi/jvc-rebirth/releases/download/v1.0.0/RebirthLauncher-1.0.0.apk" -o "$REBIRTH_APK"
   fi
-  adb -s "$TV_ADDR" install -r "$REBIRTH_APK"
+  adb -s "$TV_ADDR" install -r --no-streaming "$REBIRTH_APK" || (adb -s "$TV_ADDR" uninstall tv.rebirth.launcher 2>/dev/null || true; adb -s "$TV_ADDR" install --no-streaming "$REBIRTH_APK")
   if ! adb -s "$TV_ADDR" shell "pm list packages tv.rebirth.launcher" | grep -q "tv.rebirth.launcher"; then
     echo "[!] ERROR: Rebirth Launcher (tv.rebirth.launcher) is not installed. Aborting before disabling stock launcher."
     exit 1
